@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>신나는 몽골어 번역기</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f5f7fb;
+    text-align: center;
+    padding: 20px;
+}
+
+h1 {
+    margin-bottom: 20px;
+}
+
+.container {
+    max-width: 500px;
+    margin: auto;
+}
+
+input {
+    width: 70%;
+    padding: 10px;
+    font-size: 16px;
+}
+
+button.main {
+    padding: 10px 15px;
+    font-size: 16px;
+    background: #2d8cff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.result {
+    margin-top: 20px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.history {
+    margin-top: 30px;
+    text-align: left;
+}
+
+.item {
+    background: white;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.texts {
+    font-size: 14px;
+}
+
+.copy-btn {
+    background: #ddd;
+    border: none;
+    padding: 5px 8px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🇲🇳 신나는 몽골어 번역기</h1>
+
+<div class="container">
+
+<input type="text" id="koreanText" placeholder="한국어 입력">
+<button class="main" onclick="run()">변환</button>
+
+<div class="result" id="result"></div>
+
+<div class="history" id="history"></div>
+
+</div>
+
+<script>
+let historyList = [];
+
+// 로마자
+function toRoman(text) {
+    return text
+        .replace(/а/g, "a").replace(/б/g, "b").replace(/в/g, "v")
+        .replace(/г/g, "g").replace(/д/g, "d").replace(/е/g, "e")
+        .replace(/ё/g, "yo").replace(/ж/g, "j").replace(/з/g, "z")
+        .replace(/и/g, "i").replace(/й/g, "i").replace(/к/g, "k")
+        .replace(/л/g, "l").replace(/м/g, "m").replace(/н/g, "n")
+        .replace(/о/g, "o").replace(/ө/g, "ö").replace(/п/g, "p")
+        .replace(/р/g, "r").replace(/с/g, "s").replace(/т/g, "t")
+        .replace(/у/g, "u").replace(/ү/g, "ü").replace(/ф/g, "f")
+        .replace(/х/g, "kh").replace(/ц/g, "ts").replace(/ч/g, "ch")
+        .replace(/ш/g, "sh").replace(/ы/g, "y").replace(/э/g, "e")
+        .replace(/ю/g, "yu").replace(/я/g, "ya");
+}
+
+// 한글독
+function romanToKorean(text) {
+    return text
+        .replace(/sh/g, "쉬").replace(/ch/g, "치").replace(/kh/g, "흐")
+        .replace(/ts/g, "츠").replace(/yo/g, "요").replace(/yu/g, "유")
+        .replace(/ya/g, "야")
+        .replace(/a/g, "아").replace(/e/g, "에").replace(/i/g, "이")
+        .replace(/o/g, "오").replace(/u/g, "우").replace(/ö/g, "어")
+        .replace(/ü/g, "위").replace(/y/g, "으")
+        .replace(/b/g, "ㅂ").replace(/v/g, "ㅂ").replace(/g/g, "ㄱ")
+        .replace(/d/g, "ㄷ").replace(/j/g, "ㅈ").replace(/z/g, "ㅈ")
+        .replace(/k/g, "ㅋ").replace(/l/g, "ㄹ").replace(/m/g, "ㅁ")
+        .replace(/n/g, "ㄴ").replace(/p/g, "ㅍ").replace(/r/g, "르")
+        .replace(/s/g, "ㅅ").replace(/t/g, "ㅌ").replace(/f/g, "ㅍ");
+}
+
+async function run() {
+    const text = document.getElementById("koreanText").value;
+
+    const res = await fetch(
+        "https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=mn&dt=t&q=" 
+        + encodeURIComponent(text)
+    );
+    const data = await res.json();
+
+    const mongol = data[0][0][0];
+    const roman = toRoman(mongol);
+    const koreanRead = romanToKorean(roman);
+
+    document.getElementById("result").innerText =
+        mongol + " / " + roman + " / " + koreanRead;
+
+    // 기록 저장
+    historyList.unshift({
+        ko: text,
+        mn: mongol,
+        ro: roman,
+        kr: koreanRead
+    });
+
+    if (historyList.length > 12) historyList.pop();
+
+    renderHistory();
+}
+
+function renderHistory() {
+    const container = document.getElementById("history");
+    container.innerHTML = "";
+
+    historyList.forEach((item, index) => {
+        const div = document.createElement("div");
+        div.className = "item";
+
+        const textDiv = document.createElement("div");
+        textDiv.className = "texts";
+        textDiv.innerText =
+            `${item.ko} / ${item.mn} / ${item.ro} / ${item.kr}`;
+
+        const btn = document.createElement("button");
+        btn.className = "copy-btn";
+        btn.innerText = "복사";
+        btn.onclick = () => {
+            navigator.clipboard.writeText(
+                `${item.ko} / ${item.mn} / ${item.ro} / ${item.kr}`
+            );
+        };
+
+        div.appendChild(textDiv);
+        div.appendChild(btn);
+
+        container.appendChild(div);
+    });
+}
+</script>
+
+</body>
+</html>
