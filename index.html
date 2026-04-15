@@ -25,12 +25,21 @@ body {
     right: 14px;
     color: gray;
     font-size: 12px;
-    z-index: 20;
+    z-index: 30;
 }
 
 h1 {
-    margin: 18px 0 14px;
+    margin: 18px 0 8px;
     font-size: 28px;
+}
+
+.subtitle {
+    color: gray;
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 0 auto 14px;
+    max-width: 760px;
+    padding: 0 16px;
 }
 
 .container {
@@ -100,8 +109,19 @@ input:focus {
     line-height: 1.7;
 }
 
-.result-main,
-.history-main {
+.highlighted-input {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+.highlight-word {
+    color: purple;
+    font-weight: 700;
+}
+
+.result-main {
     font-size: 22px;
     font-weight: 700;
     word-break: break-word;
@@ -146,6 +166,17 @@ input:focus {
 .item-content {
     flex: 1;
     min-width: 0;
+}
+
+.history-card {
+    padding: 14px 16px;
+}
+
+.history-main {
+    font-size: 18px; /* 진행사항-11: 기록 칸 글자 조금 축소 */
+    font-weight: 700;
+    word-break: break-word;
+    line-height: 1.7;
 }
 
 .buttons {
@@ -227,6 +258,12 @@ input:focus {
         margin-top: 16px;
     }
 
+    .subtitle {
+        font-size: 11px;
+        padding: 0 12px;
+        margin-bottom: 12px;
+    }
+
     .container {
         max-width: none;
         padding: 12px 12px 20px;
@@ -261,8 +298,11 @@ input:focus {
         border-radius: 14px;
     }
 
-    .result-main,
-    .history-main {
+    .highlighted-input {
+        font-size: 13px;
+    }
+
+    .result-main {
         font-size: 24px;
         line-height: 1.8;
     }
@@ -274,6 +314,11 @@ input:focus {
 
     .glossary-line {
         font-size: 17px;
+    }
+
+    .history-main {
+        font-size: 16px;
+        line-height: 1.75;
     }
 
     .item {
@@ -326,9 +371,13 @@ input:focus {
 </head>
 
 <body>
-<div class="version">ver9</div>
+<div class="version">ver11</div>
 
 <h1>🇲🇳 신나는 몽골어 번역기</h1>
+<div class="subtitle">
+너는 말씀을 전파하라. 때를 얻든지 못 얻든지 항상 힘쓰라. 범사에 오래 참음과 가르침으로 경책하며 경계하며 권하라<br>
+디모데후서 4:2
+</div>
 
 <div class="container">
     <div class="input-row">
@@ -506,22 +555,21 @@ const glossaryBook = [
 function normalizeForMatch(text) {
     return String(text)
         .toLowerCase()
-        .replace(/\s+/g, "")
-        .replace(/[~!@#$%^&*()_\-+=|\\{}[\]:;"'<>,.?/]/g, "")
-        .replace(/,/g, "");
+        .replace(/\s+/g, "")   // 공백 무시
+        .replace(/,/g, "")     // 숫자 쉼표 무시
+        .replace(/[~!@#$%^&*()_\-+=|\\{}[\]:;"'<>,.?/]/g, "");
 }
 
 function isNumericLike(text) {
     return /^[0-9,]+$/.test(String(text).trim());
 }
 
-function findGlossaryPronunciations(input) {
+function findGlossaryMatches(input) {
     const normalizedInput = normalizeForMatch(input);
     if (!normalizedInput) return [];
 
     const matches = [];
-    const seen = new Set();
-
+    const seenPron = new Set();
     const sortedBook = [...glossaryBook].sort((a, b) => b[0].length - a[0].length);
 
     for (const [origin, pronunciation] of sortedBook) {
@@ -536,13 +584,32 @@ function findGlossaryPronunciations(input) {
             matched = normalizedInput.includes(normalizedOrigin);
         }
 
-        if (matched && !seen.has(pronunciation)) {
-            seen.add(pronunciation);
-            matches.push(pronunciation);
+        if (matched && !seenPron.has(pronunciation)) {
+            seenPron.add(pronunciation);
+            matches.push({ origin, pronunciation });
         }
     }
 
     return matches;
+}
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function highlightMatchedOrigins(input, matches) {
+    let output = input;
+    const sortedOrigins = [...matches]
+        .map(item => item.origin)
+        .sort((a, b) => b.length - a.length);
+
+    for (const origin of sortedOrigins) {
+        if (!origin) continue;
+        const escaped = escapeRegExp(origin);
+        const regex = new RegExp(escaped, "g");
+        output = output.replace(regex, `<span class="highlight-word">${origin}</span>`);
+    }
+    return output;
 }
 
 function toRoman(text) {
@@ -638,18 +705,23 @@ async function run() {
 
     const roman = toRoman(mn);
     const kor = romanToKorean(roman);
-    const glossaryPronunciations = findGlossaryPronunciations(input);
+    const glossaryMatches = findGlossaryMatches(input);
 
-    const glossaryHtml = glossaryPronunciations.length
+    const glossaryHtml = glossaryMatches.length
         ? `
             <div class="glossary-wrap">
-                ${glossaryPronunciations.map(item => `<div class="glossary-line">✝️: ${item}</div>`).join("")}
+                ${glossaryMatches.map(item => `<div class="glossary-line">✝️: ${item.pronunciation}</div>`).join("")}
             </div>
         `
         : "";
 
+    const highlightedInputHtml = glossaryMatches.length
+        ? `<div class="highlighted-input">${highlightMatchedOrigins(input, glossaryMatches)}</div>`
+        : `<div class="highlighted-input">${input}</div>`;
+
     document.getElementById("result").innerHTML = `
         <div class="result-card">
+            ${highlightedInputHtml}
             <div class="result-main">${mn} / ${roman} / ${kor}</div>
             <div class="result-english">ENGLISH: ${en}</div>
             ${glossaryHtml}
@@ -660,7 +732,7 @@ async function run() {
         mn,
         roman,
         kor,
-        glossaryPronunciations
+        glossaryMatches
     });
 
     if (historyList.length > 12) historyList.pop();
@@ -673,10 +745,10 @@ function renderHistory() {
     box.innerHTML = "";
 
     historyList.forEach(item => {
-        const glossaryHtml = item.glossaryPronunciations.length
+        const glossaryHtml = item.glossaryMatches.length
             ? `
                 <div class="glossary-wrap">
-                    ${item.glossaryPronunciations.map(line => `<div class="glossary-line">✝️: ${line}</div>`).join("")}
+                    ${item.glossaryMatches.map(match => `<div class="glossary-line">✝️: ${match.pronunciation}</div>`).join("")}
                 </div>
             `
             : "";
@@ -700,7 +772,7 @@ function renderHistory() {
         copyBtn.className = "copy-btn";
         copyBtn.innerText = "복사";
         copyBtn.onclick = () => {
-            const glossaryText = item.glossaryPronunciations.map(line => `✝️: ${line}`).join("\n");
+            const glossaryText = item.glossaryMatches.map(match => `✝️: ${match.pronunciation}`).join("\n");
             const copyText = [item.mn, item.roman, item.kor, glossaryText].filter(Boolean).join("\n");
             navigator.clipboard.writeText(copyText);
         };
