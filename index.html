@@ -78,7 +78,6 @@ input:focus {
     font-weight: 600;
 }
 
-/* 진행사항-6 추가 */
 .hint {
     margin-top: 8px;
     color: gray;
@@ -91,7 +90,8 @@ input:focus {
     margin-top: 18px;
 }
 
-.result-card {
+.result-card,
+.history-card {
     background: white;
     border-radius: 14px;
     padding: 16px 18px;
@@ -100,13 +100,15 @@ input:focus {
     line-height: 1.7;
 }
 
-.result-main {
+.result-main,
+.history-main {
     font-size: 22px;
     font-weight: 700;
     word-break: break-word;
 }
 
-.result-english {
+.result-english,
+.history-english {
     margin-top: 10px;
     color: green;
     font-size: 17px;
@@ -131,18 +133,16 @@ input:focus {
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
-.item-text {
-    white-space: pre-line;
-    line-height: 1.55;
+.item-content {
     flex: 1;
-    word-break: break-word;
-    font-size: 15px;
+    min-width: 0;
 }
 
 .buttons {
     display: flex;
     gap: 6px;
     flex-shrink: 0;
+    align-self: stretch;
 }
 
 .copy-btn {
@@ -171,13 +171,14 @@ input:focus {
 }
 
 #screenText {
-    font-size: 42px;
+    font-size: 48px;
     text-align: center;
     transition: transform 0.3s;
     white-space: pre-line;
     word-break: break-word;
     max-width: 90vw;
     line-height: 1.5;
+    font-weight: 700;
 }
 
 .screen-controls {
@@ -229,17 +230,20 @@ input:focus {
         padding-left: 0;
     }
 
-    .result-card {
+    .result-card,
+    .history-card {
         padding: 16px;
         border-radius: 14px;
     }
 
-    .result-main {
+    .result-main,
+    .history-main {
         font-size: 24px;
         line-height: 1.8;
     }
 
-    .result-english {
+    .result-english,
+    .history-english {
         font-size: 18px;
         line-height: 1.6;
     }
@@ -251,12 +255,9 @@ input:focus {
         padding: 12px;
     }
 
-    .item-text {
-        font-size: 16px;
-    }
-
     .buttons {
         width: 100%;
+        align-self: auto;
     }
 
     .copy-btn,
@@ -267,7 +268,7 @@ input:focus {
     }
 
     #screenText {
-        font-size: 30px;
+        font-size: 34px;
         max-width: 92vw;
     }
 
@@ -289,7 +290,7 @@ input:focus {
 </head>
 
 <body>
-<div class="version">ver6</div>
+<div class="version">ver7</div>
 
 <h1>🇲🇳 신나는 몽골어 번역기</h1>
 
@@ -317,30 +318,73 @@ input:focus {
 <script>
 function toRoman(text) {
     return text
-        .replace(/а/g,"a").replace(/б/g,"b").replace(/в/g,"v")
-        .replace(/г/g,"g").replace(/д/g,"d").replace(/е/g,"e")
-        .replace(/ё/g,"yo").replace(/ж/g,"j").replace(/з/g,"z")
-        .replace(/и/g,"i").replace(/й/g,"i").replace(/к/g,"k")
-        .replace(/л/g,"l").replace(/м/g,"m").replace(/н/g,"n")
-        .replace(/о/g,"o").replace(/ө/g,"ö").replace(/п/g,"p")
-        .replace(/р/g,"r").replace(/с/g,"s").replace(/т/g,"t")
-        .replace(/у/g,"u").replace(/ү/g,"ü").replace(/х/g,"kh")
-        .replace(/ц/g,"ts").replace(/ч/g,"ch").replace(/ш/g,"sh");
+        .replace(/щ/g, "sh")
+        .replace(/ш/g, "sh")
+        .replace(/ч/g, "ch")
+        .replace(/ц/g, "ts")
+        .replace(/ё/g, "yo")
+        .replace(/ю/g, "yu")
+        .replace(/я/g, "ya")
+        .replace(/ж/g, "j")
+        .replace(/х/g, "kh")
+        .replace(/ү/g, "ü")
+        .replace(/ө/g, "ö")
+        .replace(/ы/g, "y")
+        .replace(/э/g, "e")
+        .replace(/й/g, "i")
+        .replace(/а/g, "a")
+        .replace(/б/g, "b")
+        .replace(/в/g, "v")
+        .replace(/г/g, "g")
+        .replace(/д/g, "d")
+        .replace(/е/g, "e")
+        .replace(/з/g, "z")
+        .replace(/и/g, "i")
+        .replace(/к/g, "k")
+        .replace(/л/g, "l")
+        .replace(/м/g, "m")
+        .replace(/н/g, "n")
+        .replace(/о/g, "o")
+        .replace(/п/g, "p")
+        .replace(/р/g, "r")
+        .replace(/с/g, "s")
+        .replace(/т/g, "t")
+        .replace(/у/g, "u")
+        .replace(/ф/g, "f");
 }
 
 function romanToKorean(text) {
     return text
-        .replace(/sh/g,"쉬").replace(/ch/g,"치").replace(/kh/g,"흐")
-        .replace(/ts/g,"츠")
-        .replace(/yo/g,"요").replace(/yu/g,"유").replace(/ya/g,"야")
-        .replace(/a/g,"아").replace(/e/g,"에").replace(/i/g,"이")
-        .replace(/o/g,"오").replace(/u/g,"우").replace(/ö/g,"어")
-        .replace(/ü/g,"위")
-        .replace(/b/g,"ㅂ").replace(/v/g,"ㅂ").replace(/g/g,"ㄱ")
-        .replace(/d/g,"ㄷ").replace(/j/g,"ㅈ").replace(/z/g,"ㅈ")
-        .replace(/k/g,"ㅋ").replace(/l/g,"ㄹ").replace(/m/g,"ㅁ")
-        .replace(/n/g,"ㄴ").replace(/p/g,"ㅍ").replace(/r/g,"르")
-        .replace(/s/g,"ㅅ").replace(/t/g,"ㅌ");
+        .replace(/sh/g, "쉬")
+        .replace(/ch/g, "치")
+        .replace(/kh/g, "흐")
+        .replace(/ts/g, "츠")
+        .replace(/yo/g, "요")
+        .replace(/yu/g, "유")
+        .replace(/ya/g, "야")
+        .replace(/ö/g, "어")
+        .replace(/ü/g, "위")
+        .replace(/y/g, "으")
+        .replace(/j/g, "즈")
+        .replace(/a/g, "아")
+        .replace(/e/g, "에")
+        .replace(/i/g, "이")
+        .replace(/o/g, "오")
+        .replace(/u/g, "우")
+        .replace(/b/g, "ㅂ")
+        .replace(/v/g, "ㅂ")
+        .replace(/g/g, "ㄱ")
+        .replace(/d/g, "ㄷ")
+        .replace(/z/g, "ㅈ")
+        .replace(/k/g, "ㅋ")
+        .replace(/l/g, "ㄹ")
+        .replace(/m/g, "ㅁ")
+        .replace(/n/g, "ㄴ")
+        .replace(/p/g, "ㅍ")
+        .replace(/r/g, "르")
+        .replace(/s/g, "ㅅ")
+        .replace(/t/g, "ㅌ")
+        .replace(/f/g, "ㅍ");
 }
 
 let historyList = [];
@@ -368,18 +412,18 @@ async function run() {
 
     document.getElementById("result").innerHTML = `
         <div class="result-card">
-            <div class="result-main">(${mn}) / (${roman}) / (${kor})</div>
+            <div class="result-main">${mn} / ${roman} / ${kor}</div>
             <div class="result-english">ENGLISH: ${en}</div>
         </div>
     `;
 
-    const historyText =
-`${mn}
-${roman}
-${kor}
-ENGLISH: ${en}`;
+    historyList.unshift({
+        mn,
+        roman,
+        kor,
+        en
+    });
 
-    historyList.unshift(historyText);
     if (historyList.length > 12) historyList.pop();
 
     renderHistory();
@@ -393,9 +437,14 @@ function renderHistory() {
         const div = document.createElement("div");
         div.className = "item";
 
-        const textDiv = document.createElement("div");
-        textDiv.className = "item-text";
-        textDiv.innerText = item;
+        const content = document.createElement("div");
+        content.className = "item-content";
+        content.innerHTML = `
+            <div class="history-card">
+                <div class="history-main">${item.mn} / ${item.roman} / ${item.kor}</div>
+                <div class="history-english">ENGLISH: ${item.en}</div>
+            </div>
+        `;
 
         const btnBox = document.createElement("div");
         btnBox.className = "buttons";
@@ -403,24 +452,27 @@ function renderHistory() {
         const copyBtn = document.createElement("button");
         copyBtn.className = "copy-btn";
         copyBtn.innerText = "복사";
-        copyBtn.onclick = () => navigator.clipboard.writeText(item);
+        copyBtn.onclick = () => {
+            const copyText = `${item.mn}\n${item.roman}\n${item.kor}\nENGLISH: ${item.en}`;
+            navigator.clipboard.writeText(copyText);
+        };
 
         const screenBtn = document.createElement("button");
         screenBtn.className = "screen-btn";
         screenBtn.innerText = "스크린";
-        screenBtn.onclick = () => openScreen(item);
+        screenBtn.onclick = () => openScreen(item.mn);
 
         btnBox.appendChild(copyBtn);
         btnBox.appendChild(screenBtn);
 
-        div.appendChild(textDiv);
+        div.appendChild(content);
         div.appendChild(btnBox);
         box.appendChild(div);
     });
 }
 
-function openScreen(text) {
-    document.getElementById("screenText").innerText = text;
+function openScreen(mongolianText) {
+    document.getElementById("screenText").innerText = mongolianText;
     document.getElementById("screenText").style.transform = "rotate(0deg)";
     document.getElementById("screenMode").style.display = "flex";
 }
