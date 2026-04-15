@@ -107,12 +107,22 @@ input:focus {
     word-break: break-word;
 }
 
-.result-english,
-.history-english {
+.result-english {
     margin-top: 10px;
     color: green;
     font-size: 17px;
     font-weight: 600;
+    word-break: break-word;
+}
+
+.glossary-wrap {
+    margin-top: 10px;
+}
+
+.glossary-line {
+    color: purple;
+    font-size: 16px;
+    font-weight: 700;
     word-break: break-word;
 }
 
@@ -170,15 +180,30 @@ input:focus {
     padding: 20px;
 }
 
+#screenContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s;
+    max-width: 90vw;
+}
+
 #screenText {
     font-size: 48px;
     text-align: center;
-    transition: transform 0.3s;
     white-space: pre-line;
     word-break: break-word;
-    max-width: 90vw;
     line-height: 1.5;
     font-weight: 700;
+}
+
+#screenSub {
+    margin-top: 18px;
+    font-size: 18px;
+    color: #cfcfcf;
+    text-align: center;
+    line-height: 1.5;
 }
 
 .screen-controls {
@@ -242,10 +267,13 @@ input:focus {
         line-height: 1.8;
     }
 
-    .result-english,
-    .history-english {
+    .result-english {
         font-size: 18px;
         line-height: 1.6;
+    }
+
+    .glossary-line {
+        font-size: 17px;
     }
 
     .item {
@@ -267,9 +295,17 @@ input:focus {
         font-size: 15px;
     }
 
+    #screenContent {
+        max-width: 92vw;
+    }
+
     #screenText {
         font-size: 34px;
-        max-width: 92vw;
+    }
+
+    #screenSub {
+        font-size: 15px;
+        margin-top: 14px;
     }
 
     .screen-controls {
@@ -290,7 +326,7 @@ input:focus {
 </head>
 
 <body>
-<div class="version">ver7</div>
+<div class="version">ver9</div>
 
 <h1>🇲🇳 신나는 몽골어 번역기</h1>
 
@@ -307,7 +343,10 @@ input:focus {
 </div>
 
 <div id="screenMode">
-    <div id="screenText"></div>
+    <div id="screenContent">
+        <div id="screenText"></div>
+        <div id="screenSub">Орчуулга муу байвал уучлаарай.</div>
+    </div>
     <div class="screen-controls">
         <button onclick="setVertical()">세로모드</button>
         <button onclick="setHorizontal()">가로모드</button>
@@ -316,6 +355,196 @@ input:focus {
 </div>
 
 <script>
+const glossaryBook = [
+    ["안녕하세요", "센배노"],
+    ["안녕히가세요", "바얄테이"],
+    ["만나서 반가워요", "올쯔쓴다 바야르테 밴"],
+    ["이름이 뭐예요?(어른)", "타닉 헨 게뜩 웨?"],
+    ["이름이 뭐예요?(아이)", "치니 네르 힌 빌레?"],
+    ["내 이름은 (누구)이야", "미니네르 (누구)게떽크"],
+    ["제 이름은 (누구)입니다", "나맥 (누구)게떽크"],
+    ["다음에 또 만나요", "다라 올쯔이"],
+    ["안녕히 계세요", "샌 소-찌 배가래"],
+    ["몇 살입니까?", "타 히뜽 나스테 웨?"],
+    ["24 살입니다", "비 (허린타웁) 나스테"],
+    ["잘자", "새흥 암라래"],
+    ["실례합니다", "오-칠라래"],
+    ["죄송해요", "오-칠라래"],
+    ["덥네요", "까따 할롱 벤"],
+    ["추워요", "후이튼 벤"],
+
+    ["1", "넥(닉)"],
+    ["2", "호요르(허요르)"],
+    ["3", "고로(고롭)"],
+    ["4", "두루브(두릅)"],
+    ["5", "타우(탑)"],
+    ["6", "조르가"],
+    ["7", "덜러"],
+    ["8", "나임"],
+    ["9", "유스"],
+    ["10", "아롭(아롱)"],
+    ["20", "허리"],
+    ["30", "고치"],
+    ["40", "두치"],
+    ["50", "태비"],
+    ["60", "자르"],
+    ["70", "달"],
+    ["80", "나이"],
+    ["90", "이르"],
+    ["100", "조"],
+    ["110", "존 아롭"],
+    ["1,000", "미양가"],
+    ["10,000", "아롱 미양가"],
+    ["100,000", "조 미양가"],
+    ["1,000,000", "넥 사이"],
+
+    ["오늘", "우너두르"],
+    ["내일", "마르가시"],
+    ["시간", "짜끄"],
+    ["음식", "호올"],
+    ["사랑", "하이르"],
+    ["사진", "조락"],
+    ["대학생", "오욧땅"],
+    ["회사원", "아질띤"],
+    ["선생님", "박싀"],
+    ["공부", "히첼"],
+    ["과자", "보오브"],
+    ["예", "티"],
+    ["맞습니다", "문"],
+    ["아니오", "우구이"],
+    ["아닙니다", "비시"],
+    ["갑시다", "여우야"],
+    ["오세요", "이레레"],
+    ["감사합니다", "바얄랄라~"],
+    ["죄송합니다", "오칠라레~"],
+    ["빨리빨리", "호르똥호르똥"],
+    ["좋습니다", "샌 밴"],
+    ["괜찮아요", "주-게래"],
+
+    ["이것은 얼마 입니까?", "헤덴 투그륵 웨?"],
+    ["이것은 무엇입니까?", "엔 요 웨?"],
+    ["을(를) 주세요", "엔익 우거츠"],
+    ["사랑합니다", "하이르태"],
+    ["~을 좋아하다", "~뜨 다르태"],
+    ["환영합니다", "타우모릴로"],
+    ["맛있게 드세요(식사)", "사이항 호올로오래"],
+    ["이것이 맞습니까?", "엔 문 우?"],
+    ["이것이 아닙니까?", "엔 비시우?"],
+    ["화장실이 어디예요?", "아리온 체웨린 오로 한-웨"],
+    ["왼쪽으로 가세요", "준티쉐 야브노"],
+    ["오른쪽으로 가세요", "바론티쉐 야브노"],
+    ["똑바로 가세요", "치게레 야브노"],
+    ["이리오세요", "나쉬 이르"],
+    ["잘 모르겠어요", "새-응 미뜨흐뀌 밴-"],
+    ["잘 알겠어요", "새-응 어일거쯔 밴-"],
+    ["물론이죠", "타글귀 야하우"],
+    ["잘하고 있어요", "새-응밴"],
+    ["수고 많으셨어요", "타새-응 아찔르승 슈"],
+    ["안좋습니다", "샌 비씨"],
+    ["필요합니다", "헤르그태"],
+    ["조금만 기다려주세요", "조흥 후레게레"],
+    ["3개 주세요", "(고롭) 어거레"],
+    ["1 시 입니다", "닉 착"],
+
+    ["하나님", "보르항"],
+    ["예수님", "예수쓰"],
+    ["목사님", "파스테르"],
+    ["십자가", "자갈매"],
+    ["교회", "초글랑"],
+    ["믿음", "이트게르"],
+    ["소망", "레이드와르"],
+    ["은혜", "이웰"],
+    ["예배", "무르굴"],
+    ["기도", "잘브리흐"],
+    ["찬양", "막탈"],
+    ["성경책", "비블리 / 비블리아"],
+    ["기도합시다", "잘비르츠가야"],
+    ["아멘", "아멘"],
+    ["하나님을 당신을 사랑하십니다", "보르항 탄드 하이르테"],
+    ["예수님의 이름으로 당신을 사랑합니다", "예즈니 네레르 비 탄드 하이르테"],
+    ["예수님의 이름으로 당신을 축복합니다", "예즈니 네레르 타닉 유러-쯔 밴"],
+    ["예수님은 당신을 사랑합니다", "예수스 탄트 하이르태"],
+    ["예수님은 몽골 사람을 사랑합니다", "예수스 몽골 훙 하이르태"],
+    ["예수님을 믿으세요", "예수스트 이트게-레"],
+    ["예수님을 믿으시겠습니까?", "타 예수스트 이트게후?"],
+    ["예수님은 우리의 구세주입니다", "예수쓰 볼 비드니 아브-라그츠"],
+    ["교회에 오시겠어요?", "숨드 이레레"],
+    ["당신을 위해 기도하겠습니다", "타니 톨로오 잘비르나"],
+    ["따라 하세요", "따가드 히게레"],
+    ["조용히 앉으세요", "치메귀 쏘가레"],
+
+    ["맛있다", "암트태"],
+    ["예쁘다", "흐-르흥"],
+    ["귀엽다", "으흐-르뜨므-르"],
+    ["멋지다", "고이/도그조"],
+    ["아름답습니다", "우쭈스갤른태"],
+    ["배부르다", "차들라"],
+    ["차갑다", "후이틍"],
+    ["뜨겁다", "할룽"],
+    ["따뜻하다", "둘랑"],
+    ["아주 맛있다", "암트태 / 꿔이밴"],
+
+    ["빨간 색", "올랑-옹고"],
+    ["주황색", "올랑 샤르 옹고"],
+    ["노란 색", "샤르 옹고"],
+    ["초록색", "너겅 옹고"],
+    ["연두색", "샤르 너겅 옹고"],
+    ["파란 색", "후흐 옹고"],
+    ["남색", "후흐 옹고"],
+    ["하늘색", "쳉헤르 옹고"],
+    ["보라색", "야강 옹고"],
+    ["하얀 색", "차강 옹고"],
+    ["검정색", "하르 옹고"],
+    ["갈색", "후렝 옹고"],
+    ["회색", "샤-랄 옹고"],
+    ["밝은 색", "게렐테이 옹고"],
+    ["연한 색", "졸-롱 옹고"],
+    ["짙은 색", "터드 옹고"],
+    ["무지개", "솔롱고"]
+];
+
+function normalizeForMatch(text) {
+    return String(text)
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .replace(/[~!@#$%^&*()_\-+=|\\{}[\]:;"'<>,.?/]/g, "")
+        .replace(/,/g, "");
+}
+
+function isNumericLike(text) {
+    return /^[0-9,]+$/.test(String(text).trim());
+}
+
+function findGlossaryPronunciations(input) {
+    const normalizedInput = normalizeForMatch(input);
+    if (!normalizedInput) return [];
+
+    const matches = [];
+    const seen = new Set();
+
+    const sortedBook = [...glossaryBook].sort((a, b) => b[0].length - a[0].length);
+
+    for (const [origin, pronunciation] of sortedBook) {
+        const normalizedOrigin = normalizeForMatch(origin);
+        if (!normalizedOrigin) continue;
+
+        let matched = false;
+
+        if (isNumericLike(origin)) {
+            matched = normalizedInput === normalizedOrigin;
+        } else {
+            matched = normalizedInput.includes(normalizedOrigin);
+        }
+
+        if (matched && !seen.has(pronunciation)) {
+            seen.add(pronunciation);
+            matches.push(pronunciation);
+        }
+    }
+
+    return matches;
+}
+
 function toRoman(text) {
     return text
         .replace(/щ/g, "sh")
@@ -363,9 +592,11 @@ function romanToKorean(text) {
         .replace(/yu/g, "유")
         .replace(/ya/g, "야")
         .replace(/ö/g, "어")
-        .replace(/ü/g, "위")
+        .replace(/ü/g, "우")
         .replace(/y/g, "으")
-        .replace(/j/g, "즈")
+        .replace(/j/g, "지")
+        .replace(/z/g, "즈")
+        .replace(/r/g, "르")
         .replace(/a/g, "아")
         .replace(/e/g, "에")
         .replace(/i/g, "이")
@@ -375,13 +606,11 @@ function romanToKorean(text) {
         .replace(/v/g, "ㅂ")
         .replace(/g/g, "ㄱ")
         .replace(/d/g, "ㄷ")
-        .replace(/z/g, "ㅈ")
         .replace(/k/g, "ㅋ")
         .replace(/l/g, "ㄹ")
         .replace(/m/g, "ㅁ")
         .replace(/n/g, "ㄴ")
         .replace(/p/g, "ㅍ")
-        .replace(/r/g, "르")
         .replace(/s/g, "ㅅ")
         .replace(/t/g, "ㅌ")
         .replace(/f/g, "ㅍ");
@@ -409,11 +638,21 @@ async function run() {
 
     const roman = toRoman(mn);
     const kor = romanToKorean(roman);
+    const glossaryPronunciations = findGlossaryPronunciations(input);
+
+    const glossaryHtml = glossaryPronunciations.length
+        ? `
+            <div class="glossary-wrap">
+                ${glossaryPronunciations.map(item => `<div class="glossary-line">✝️: ${item}</div>`).join("")}
+            </div>
+        `
+        : "";
 
     document.getElementById("result").innerHTML = `
         <div class="result-card">
             <div class="result-main">${mn} / ${roman} / ${kor}</div>
             <div class="result-english">ENGLISH: ${en}</div>
+            ${glossaryHtml}
         </div>
     `;
 
@@ -421,7 +660,7 @@ async function run() {
         mn,
         roman,
         kor,
-        en
+        glossaryPronunciations
     });
 
     if (historyList.length > 12) historyList.pop();
@@ -434,6 +673,14 @@ function renderHistory() {
     box.innerHTML = "";
 
     historyList.forEach(item => {
+        const glossaryHtml = item.glossaryPronunciations.length
+            ? `
+                <div class="glossary-wrap">
+                    ${item.glossaryPronunciations.map(line => `<div class="glossary-line">✝️: ${line}</div>`).join("")}
+                </div>
+            `
+            : "";
+
         const div = document.createElement("div");
         div.className = "item";
 
@@ -442,7 +689,7 @@ function renderHistory() {
         content.innerHTML = `
             <div class="history-card">
                 <div class="history-main">${item.mn} / ${item.roman} / ${item.kor}</div>
-                <div class="history-english">ENGLISH: ${item.en}</div>
+                ${glossaryHtml}
             </div>
         `;
 
@@ -453,7 +700,8 @@ function renderHistory() {
         copyBtn.className = "copy-btn";
         copyBtn.innerText = "복사";
         copyBtn.onclick = () => {
-            const copyText = `${item.mn}\n${item.roman}\n${item.kor}\nENGLISH: ${item.en}`;
+            const glossaryText = item.glossaryPronunciations.map(line => `✝️: ${line}`).join("\n");
+            const copyText = [item.mn, item.roman, item.kor, glossaryText].filter(Boolean).join("\n");
             navigator.clipboard.writeText(copyText);
         };
 
@@ -473,16 +721,16 @@ function renderHistory() {
 
 function openScreen(mongolianText) {
     document.getElementById("screenText").innerText = mongolianText;
-    document.getElementById("screenText").style.transform = "rotate(0deg)";
+    document.getElementById("screenContent").style.transform = "rotate(0deg)";
     document.getElementById("screenMode").style.display = "flex";
 }
 
 function setVertical() {
-    document.getElementById("screenText").style.transform = "rotate(0deg)";
+    document.getElementById("screenContent").style.transform = "rotate(0deg)";
 }
 
 function setHorizontal() {
-    document.getElementById("screenText").style.transform = "rotate(90deg)";
+    document.getElementById("screenContent").style.transform = "rotate(90deg)";
 }
 
 function closeScreen() {
