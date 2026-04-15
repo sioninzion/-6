@@ -10,11 +10,19 @@ body {
     background: #f5f7fb;
     text-align: center;
     padding: 20px;
+    margin: 0;
 }
 
-h1 {
-    margin-bottom: 20px;
+/* 🔥 버전 표시 */
+.version {
+    position: fixed;
+    top: 10px;
+    right: 15px;
+    color: gray;
+    font-size: 12px;
 }
+
+h1 { margin-bottom: 20px; }
 
 .container {
     max-width: 520px;
@@ -44,15 +52,8 @@ button {
     font-size: 20px;
 }
 
-.roman {
-    color: green;
-    margin-top: 8px;
-}
-
-.korean {
-    color: gray;
-    margin-top: 5px;
-}
+.roman { color: green; }
+.korean { color: gray; }
 
 /* 기록 */
 .history {
@@ -67,40 +68,82 @@ button {
     border-radius: 8px;
     display: flex;
     justify-content: space-between;
+    align-items: center;
+}
+
+.buttons {
+    display: flex;
+    gap: 5px;
 }
 
 .copy-btn {
     background: #ddd;
-    border: none;
-    padding: 5px;
-    cursor: pointer;
+    color: black;
 }
 
-/* 🔥 진행사항-1: 가로모드 */
-@media (orientation: landscape) {
+.screen-btn {
+    background: #444;
+}
+
+/* 🔥 스크린 모드 */
+#screenMode {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: black;
+    color: white;
+    justify-content: center;
+    align-items: center;
+    font-size: 40px;
+    z-index: 999;
+    text-align: center;
+    padding: 20px;
+}
+
+#screenText {
+    transform: rotate(90deg);
+}
+
+/* 🔥 진행사항-3: 모바일 대응 */
+@media (max-width: 768px) {
 
     body {
-        padding: 10px;
+        padding: 15px;
     }
 
-    .container {
-        transform: rotate(90deg);
-        transform-origin: center;
-        width: 100vh;
+    input {
+        width: 100%;
+        font-size: 18px;
+    }
+
+    button {
+        width: 100%;
+        margin-top: 10px;
+        font-size: 18px;
     }
 
     .result {
-        font-size: 32px;
+        font-size: 26px;
     }
 
-    input, button {
-        font-size: 20px;
+    .item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .buttons {
+        margin-top: 8px;
     }
 }
 </style>
 </head>
 
 <body>
+
+<div class="version">ver3</div>
 
 <h1>🇲🇳 신나는 몽골어 번역기</h1>
 
@@ -112,6 +155,11 @@ button {
 <div class="result" id="result"></div>
 <div class="history" id="history"></div>
 
+</div>
+
+<!-- 스크린 모드 -->
+<div id="screenMode" onclick="closeScreen()">
+    <div id="screenText"></div>
 </div>
 
 <script>
@@ -185,18 +233,39 @@ function renderHistory(){
         const span = document.createElement("span");
         span.innerText = item;
 
-        const btn = document.createElement("button");
-        btn.className = "copy-btn";
-        btn.innerText = "복사";
-        btn.onclick = ()=>navigator.clipboard.writeText(item);
+        const btnBox = document.createElement("div");
+        btnBox.className = "buttons";
+
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "copy-btn";
+        copyBtn.innerText = "복사";
+        copyBtn.onclick = ()=>navigator.clipboard.writeText(item);
+
+        const screenBtn = document.createElement("button");
+        screenBtn.className = "screen-btn";
+        screenBtn.innerText = "스크린";
+        screenBtn.onclick = ()=>openScreen(item);
+
+        btnBox.appendChild(copyBtn);
+        btnBox.appendChild(screenBtn);
 
         div.appendChild(span);
-        div.appendChild(btn);
+        div.appendChild(btnBox);
         box.appendChild(div);
     });
 }
 
-/* 🔥 진행사항-1: 엔터 */
+/* 스크린 */
+function openScreen(text){
+    document.getElementById("screenText").innerText = text;
+    document.getElementById("screenMode").style.display = "flex";
+}
+
+function closeScreen(){
+    document.getElementById("screenMode").style.display = "none";
+}
+
+/* 진행사항-1 */
 document.getElementById("input").addEventListener("keydown", e=>{
     if(e.key === "Enter") run();
 });
