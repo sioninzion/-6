@@ -218,7 +218,7 @@ input:focus {
     border-radius: 10px;
 }
 
-/* 진행사항-15: 선택 복사 패널 */
+/* 선택 복사 패널 */
 .copy-panel {
     position: absolute;
     right: 0;
@@ -249,13 +249,20 @@ input:focus {
     user-select: none;
     font-size: 14px;
     color: #333;
+    white-space: nowrap;
 }
 
 .copy-option input {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     margin: 0;
-    flex: none;
+    flex: 0 0 18px;
+}
+
+.copy-option span {
+    display: inline-block;
+    white-space: nowrap;
+    word-break: keep-all;
 }
 
 .copy-action-btn {
@@ -268,6 +275,7 @@ input:focus {
     padding: 10px 12px;
     font-weight: 700;
     cursor: pointer;
+    writing-mode: horizontal-tb;
 }
 
 /* 스크린 모드 */
@@ -322,7 +330,6 @@ input:focus {
     color: #666;
 }
 
-/* 진행사항-14 */
 .screen-ui {
     position: absolute;
     inset: 0;
@@ -341,8 +348,8 @@ input:focus {
 }
 
 .gear-button {
-    width: 56px;   /* 진행사항-15 */
-    height: 56px;  /* 진행사항-15 */
+    width: 56px;
+    height: 56px;
     border-radius: 999px;
     background: rgba(255,255,255,0.16);
     color: white;
@@ -407,7 +414,6 @@ input:focus {
     box-shadow: 0 6px 16px rgba(0,0,0,0.24);
 }
 
-/* 복사됨 토스트 */
 #toast {
     position: fixed;
     bottom: 84px;
@@ -517,8 +523,26 @@ input:focus {
     .copy-panel {
         left: 0;
         right: 0;
-        width: auto;
+        width: 100%;
+        min-width: 0;
         top: calc(100% + 8px);
+        padding: 14px;
+    }
+
+    .copy-option {
+        font-size: 16px;
+        gap: 12px;
+    }
+
+    .copy-option input {
+        width: 20px;
+        height: 20px;
+        flex: 0 0 20px;
+    }
+
+    .copy-action-btn {
+        padding: 12px 14px;
+        font-size: 16px;
     }
 
     #screenContent {
@@ -571,7 +595,7 @@ input:focus {
 </head>
 
 <body>
-<div class="version">ver15</div>
+<div class="version">ver15.1</div>
 
 <h1>🇲🇳 신나는 몽골어 번역기</h1>
 <div class="subtitle">
@@ -697,7 +721,7 @@ const glossaryBook = [
     ["맛있게 드세요(식사)", "사이항 호올로오래"],
     ["이것이 맞습니까?", "엔 문 우?"],
     ["이것이 아닙니까?", "엔 비시우?"],
-    ["화장실이 어디예요?", "아리온 체웨린 오로 한-웨"],
+    ["화장실이 어디예요?", "아ри온 체웨рин 오ро 한-웨"],
     ["왼쪽으로 가세요", "준티쉐 야브노"],
     ["오른쪽으로 가세요", "바론티쉐 야브노"],
     ["똑바로 가세요", "치게레 야브노"],
@@ -999,6 +1023,7 @@ function toggleCopyPanel(id, event) {
     event.stopPropagation();
     if (openCopyPanelId === id) {
         closeCopyPanels();
+        renderHistory();
         return;
     }
     openCopyPanelId = id;
@@ -1007,8 +1032,6 @@ function toggleCopyPanel(id, event) {
 
 function closeCopyPanels() {
     openCopyPanelId = null;
-    const panels = document.querySelectorAll(".copy-panel");
-    panels.forEach(panel => panel.classList.remove("open"));
 }
 
 function copySelectedFields(id) {
@@ -1035,6 +1058,7 @@ function copySelectedFields(id) {
     navigator.clipboard.writeText(lines.join("\n"));
     showToast();
     closeCopyPanels();
+    renderHistory();
 }
 
 function renderHistory() {
@@ -1062,6 +1086,7 @@ function renderHistory() {
 
         const copyWrap = document.createElement("div");
         copyWrap.style.position = "relative";
+        copyWrap.style.flex = "1";
 
         const copyBtn = document.createElement("button");
         copyBtn.className = "copy-btn";
@@ -1072,10 +1097,10 @@ function renderHistory() {
         copyPanel.className = `copy-panel ${isOpen ? "open" : ""}`;
         copyPanel.id = `copyPanel-${item.id}`;
         copyPanel.innerHTML = `
-            <label class="copy-option"><input type="checkbox" class="copy-check-input"> 한국어</label>
-            <label class="copy-option"><input type="checkbox" class="copy-check-mn" checked> 몽골어</label>
-            <label class="copy-option"><input type="checkbox" class="copy-check-roman" checked> 로마발음</label>
-            <label class="copy-option"><input type="checkbox" class="copy-check-kor"> 한국독음</label>
+            <label class="copy-option"><input type="checkbox" class="copy-check-input"><span>한국어</span></label>
+            <label class="copy-option"><input type="checkbox" class="copy-check-mn" checked><span>몽골어</span></label>
+            <label class="copy-option"><input type="checkbox" class="copy-check-roman" checked><span>로마발음</span></label>
+            <label class="copy-option"><input type="checkbox" class="copy-check-kor"><span>한국독음</span></label>
             <button class="copy-action-btn">복사하기</button>
         `;
 
@@ -1232,6 +1257,7 @@ document.getElementById("screenMode").addEventListener("click", (e) => {
 document.addEventListener("click", (e) => {
     if (!e.target.closest(".buttons")) {
         closeCopyPanels();
+        renderHistory();
     }
 });
 </script>
