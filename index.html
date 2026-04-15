@@ -177,6 +177,7 @@ input:focus {
     align-items: flex-start;
     gap: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    position: relative;
 }
 
 .item-content {
@@ -200,6 +201,7 @@ input:focus {
     gap: 6px;
     flex-shrink: 0;
     align-self: stretch;
+    position: relative;
 }
 
 .copy-btn {
@@ -214,6 +216,58 @@ input:focus {
     color: white;
     padding: 10px 12px;
     border-radius: 10px;
+}
+
+/* 진행사항-15: 선택 복사 패널 */
+.copy-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    width: 210px;
+    background: white;
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.14);
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    z-index: 40;
+}
+
+.copy-panel.open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.copy-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    user-select: none;
+    font-size: 14px;
+    color: #333;
+}
+
+.copy-option input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex: none;
+}
+
+.copy-action-btn {
+    width: 100%;
+    margin-top: 4px;
+    border: none;
+    border-radius: 999px;
+    background: #2d8cff;
+    color: white;
+    padding: 10px 12px;
+    font-weight: 700;
+    cursor: pointer;
 }
 
 /* 스크린 모드 */
@@ -287,8 +341,8 @@ input:focus {
 }
 
 .gear-button {
-    width: 52px;
-    height: 52px;
+    width: 56px;   /* 진행사항-15 */
+    height: 56px;  /* 진행사항-15 */
     border-radius: 999px;
     background: rgba(255,255,255,0.16);
     color: white;
@@ -450,6 +504,7 @@ input:focus {
     .buttons {
         width: 100%;
         align-self: auto;
+        justify-content: stretch;
     }
 
     .copy-btn,
@@ -457,6 +512,13 @@ input:focus {
         flex: 1;
         padding: 12px 10px;
         font-size: 15px;
+    }
+
+    .copy-panel {
+        left: 0;
+        right: 0;
+        width: auto;
+        top: calc(100% + 8px);
     }
 
     #screenContent {
@@ -478,8 +540,8 @@ input:focus {
     }
 
     .gear-button {
-        width: 48px;
-        height: 48px;
+        width: 56px;
+        height: 56px;
         font-size: 22px;
     }
 
@@ -509,7 +571,7 @@ input:focus {
 </head>
 
 <body>
-<div class="version">ver14</div>
+<div class="version">ver15</div>
 
 <h1>🇲🇳 신나는 몽골어 번역기</h1>
 <div class="subtitle">
@@ -536,7 +598,7 @@ input:focus {
         <div id="screenSub">Орчуулга муу байвал уучлаарай.</div>
     </div>
 
-    <div class="screen-ui" id="screenUiBackdrop">
+    <div class="screen-ui">
         <div class="gear-cluster" id="gearCluster">
             <div class="gear-menu" id="gearMenu">
                 <button onclick="copyScreenResult()">결과 복사</button>
@@ -846,6 +908,7 @@ let toastTimeout = null;
 let gearMenuOpen = false;
 let screenLabelVisible = true;
 let currentScreenTextValue = "";
+let openCopyPanelId = null;
 
 function applyScreenTextSize() {
     document.getElementById("screenText").style.fontSize = screenFontSize + "px";
@@ -922,18 +985,65 @@ function stopLoadingMessage() {
     button.disabled = false;
 }
 
+function buildGlossaryHtml(matches) {
+    return matches.length
+        ? `
+            <div class="glossary-wrap">
+                ${matches.map(match => `<div class="glossary-line">✝️: ${match.pronunciation}</div>`).join("")}
+            </div>
+        `
+        : "";
+}
+
+function toggleCopyPanel(id, event) {
+    event.stopPropagation();
+    if (openCopyPanelId === id) {
+        closeCopyPanels();
+        return;
+    }
+    openCopyPanelId = id;
+    renderHistory();
+}
+
+function closeCopyPanels() {
+    openCopyPanelId = null;
+    const panels = document.querySelectorAll(".copy-panel");
+    panels.forEach(panel => panel.classList.remove("open"));
+}
+
+function copySelectedFields(id) {
+    const item = historyList.find(entry => entry.id === id);
+    if (!item) return;
+
+    const panel = document.getElementById(`copyPanel-${id}`);
+    if (!panel) return;
+
+    const includeInput = panel.querySelector(".copy-check-input").checked;
+    const includeMn = panel.querySelector(".copy-check-mn").checked;
+    const includeRoman = panel.querySelector(".copy-check-roman").checked;
+    const includeKor = panel.querySelector(".copy-check-kor").checked;
+
+    const lines = [];
+    if (includeInput) lines.push(item.input);
+    if (includeMn) lines.push(item.mn);
+    if (includeRoman) lines.push(item.roman);
+    if (includeKor) lines.push(item.kor);
+
+    const glossaryText = item.glossaryMatches.map(match => `✝️: ${match.pronunciation}`).join("\n");
+    if (glossaryText) lines.push(glossaryText);
+
+    navigator.clipboard.writeText(lines.join("\n"));
+    showToast();
+    closeCopyPanels();
+}
+
 function renderHistory() {
     const box = document.getElementById("history");
     box.innerHTML = "";
 
     historyList.forEach(item => {
-        const glossaryHtml = item.glossaryMatches.length
-            ? `
-                <div class="glossary-wrap">
-                    ${item.glossaryMatches.map(match => `<div class="glossary-line">✝️: ${match.pronunciation}</div>`).join("")}
-                </div>
-            `
-            : "";
+        const glossaryHtml = buildGlossaryHtml(item.glossaryMatches);
+        const isOpen = openCopyPanelId === item.id;
 
         const div = document.createElement("div");
         div.className = "item";
@@ -950,29 +1060,36 @@ function renderHistory() {
         const btnBox = document.createElement("div");
         btnBox.className = "buttons";
 
+        const copyWrap = document.createElement("div");
+        copyWrap.style.position = "relative";
+
         const copyBtn = document.createElement("button");
         copyBtn.className = "copy-btn";
         copyBtn.innerText = "복사";
-        copyBtn.onclick = () => {
-            const glossaryText = item.glossaryMatches.map(match => `✝️: ${match.pronunciation}`).join("\n");
-            const copyText = [
-                item.input,
-                item.mn,
-                item.roman,
-                item.kor,
-                glossaryText
-            ].filter(Boolean).join("\n");
+        copyBtn.onclick = (e) => toggleCopyPanel(item.id, e);
 
-            navigator.clipboard.writeText(copyText);
-            showToast();
-        };
+        const copyPanel = document.createElement("div");
+        copyPanel.className = `copy-panel ${isOpen ? "open" : ""}`;
+        copyPanel.id = `copyPanel-${item.id}`;
+        copyPanel.innerHTML = `
+            <label class="copy-option"><input type="checkbox" class="copy-check-input"> 한국어</label>
+            <label class="copy-option"><input type="checkbox" class="copy-check-mn" checked> 몽골어</label>
+            <label class="copy-option"><input type="checkbox" class="copy-check-roman" checked> 로마발음</label>
+            <label class="copy-option"><input type="checkbox" class="copy-check-kor"> 한국독음</label>
+            <button class="copy-action-btn">복사하기</button>
+        `;
+
+        copyPanel.querySelector(".copy-action-btn").onclick = () => copySelectedFields(item.id);
+
+        copyWrap.appendChild(copyBtn);
+        copyWrap.appendChild(copyPanel);
 
         const screenBtn = document.createElement("button");
         screenBtn.className = "screen-btn";
         screenBtn.innerText = "스크린";
         screenBtn.onclick = () => openScreen(item.mn);
 
-        btnBox.appendChild(copyBtn);
+        btnBox.appendChild(copyWrap);
         btnBox.appendChild(screenBtn);
 
         div.appendChild(content);
@@ -1006,13 +1123,7 @@ async function run() {
         const kor = romanToKorean(roman);
         const glossaryMatches = findGlossaryMatches(input);
 
-        const glossaryHtml = glossaryMatches.length
-            ? `
-                <div class="glossary-wrap">
-                    ${glossaryMatches.map(item => `<div class="glossary-line">✝️: ${item.pronunciation}</div>`).join("")}
-                </div>
-            `
-            : "";
+        const glossaryHtml = buildGlossaryHtml(glossaryMatches);
 
         const highlightedInputHtml = glossaryMatches.length
             ? `<div class="highlighted-input">${highlightMatchedOrigins(input, glossaryMatches)}</div>`
@@ -1028,6 +1139,7 @@ async function run() {
         `;
 
         historyList.unshift({
+            id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
             input,
             mn,
             roman,
@@ -1037,6 +1149,7 @@ async function run() {
 
         if (historyList.length > 12) historyList.pop();
 
+        closeCopyPanels();
         renderHistory();
     } catch (error) {
         document.getElementById("result").innerHTML = `
@@ -1075,6 +1188,7 @@ function clearAllData() {
     document.getElementById("input").value = "";
     historyList = [];
     currentScreenTextValue = "";
+    closeCopyPanels();
     closeScreen();
     showToast("초기화됨!");
 }
@@ -1112,6 +1226,12 @@ document.getElementById("screenMode").addEventListener("click", (e) => {
 
     if (!clickedInsideGear && !clickedInsideExit && !clickedInsideContent) {
         closeGearMenu();
+    }
+});
+
+document.addEventListener("click", (e) => {
+    if (!e.target.closest(".buttons")) {
+        closeCopyPanels();
     }
 });
 </script>
