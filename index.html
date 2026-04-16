@@ -404,6 +404,40 @@ input:focus { border-color: #2d8cff; }
     display: none;
 }
 
+
+.camera-zoom-panel {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 86px;
+    z-index: 20;
+    display: none;
+    padding: 10px 12px;
+    border-radius: 16px;
+    background: rgba(0,0,0,0.42);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: white;
+}
+.camera-zoom-panel.active { display: block; }
+.camera-zoom-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 700;
+}
+.camera-zoom-value {
+    min-width: 42px;
+    text-align: right;
+}
+.camera-zoom-slider {
+    width: 100%;
+    margin: 0;
+}
+
 #cameraFullscreen {
     position: fixed;
     inset: 0;
@@ -817,6 +851,18 @@ input:focus { border-color: #2d8cff; }
         font-size: 14px;
     }
 
+    .camera-zoom-panel {
+        left: 10px;
+        right: 10px;
+        bottom: 74px;
+        padding: 9px 10px;
+    }
+
+    .camera-zoom-top {
+        font-size: 12px;
+        margin-bottom: 6px;
+    }
+
     .camera-fs-controls {
         left: 10px;
         right: 10px;
@@ -893,7 +939,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver19.6</div>
+<div class="version">ver19.8</div>
 <button class="mode-switch" id="modeSwitchBtn" onclick="handleModeSwitch()">📷</button>
 
 <div id="mainPage" class="page">
@@ -961,6 +1007,14 @@ input:focus { border-color: #2d8cff; }
         <div class="handle ne" data-handle="ne"></div>
         <div class="handle sw" data-handle="sw"></div>
         <div class="handle se" data-handle="se"></div>
+    </div>
+
+    <div class="camera-zoom-panel" id="cameraZoomPanel">
+        <div class="camera-zoom-top">
+            <span>줌 조절</span>
+            <span class="camera-zoom-value" id="cameraZoomValue">1.0x</span>
+        </div>
+        <input type="range" class="camera-zoom-slider" id="cameraZoomSlider" min="1" max="1" step="0.1" value="1" />
     </div>
 
     <div class="camera-fs-controls" id="cameraControls">
@@ -1161,6 +1215,12 @@ let openCopyPanelId = null;
 let isCameraMode = false;
 
 let currentStream = null;
+let currentCameraTrack = null;
+let cameraSupportsZoom = false;
+let cameraZoomMin = 1;
+let cameraZoomMax = 1;
+let cameraZoomStep = 0.1;
+let currentCameraZoom = 1;
 let cameraShotTaken = false;
 let rangeVisible = false;
 let cameraOcrRunning = false;
@@ -1179,6 +1239,9 @@ const cameraVideo = document.getElementById("cameraVideo");
 const cameraSnapshot = document.getElementById("cameraSnapshot");
 const cameraPlaceholder = document.getElementById("cameraPlaceholder");
 const cameraGuideText = document.getElementById("cameraGuideText");
+const cameraZoomPanel = document.getElementById("cameraZoomPanel");
+const cameraZoomSlider = document.getElementById("cameraZoomSlider");
+const cameraZoomValue = document.getElementById("cameraZoomValue");
 const cameraFullscreen = document.getElementById("cameraFullscreen");
 const captureBtn = document.getElementById("captureBtn");
 const rangeBtn = document.getElementById("rangeBtn");
@@ -1187,6 +1250,12 @@ const ocrBox = document.getElementById("ocrBox");
 const cameraProgress = document.getElementById("cameraProgress");
 const cameraRecognizedText = document.getElementById("cameraRecognizedText");
 const cameraTranslatedText = document.getElementById("cameraTranslatedText");
+
+if (cameraZoomSlider) {
+    cameraZoomSlider.addEventListener("input", (event) => {
+        applyCameraZoom(event.target.value);
+    });
+}
 
 /* =========================
    공통 유틸
@@ -1999,6 +2068,90 @@ function getGuideRectRelativeToElement(element, sourceWidth, sourceHeight) {
     return { sx, sy, sw, sh };
 }
 
+
+function setCameraZoomUi(value = 1) {
+    const safe = Number.isFinite(value) ? value : 1;
+    currentCameraZoom = safe;
+    if (cameraZoomValue) cameraZoomValue.textContent = `${safe.toFixed(1)}x`;
+    if (cameraZoomSlider) cameraZoomSlider.value = String(safe);
+}
+
+function resetCameraZoomState() {
+    currentCameraTrack = null;
+    cameraSupportsZoom = false;
+    cameraZoomMin = 1;
+    cameraZoomMax = 1;
+    cameraZoomStep = 0.1;
+    setCameraZoomUi(1);
+
+    if (cameraZoomSlider) {
+        cameraZoomSlider.min = "1";
+        cameraZoomSlider.max = "1";
+        cameraZoomSlider.step = "0.1";
+        cameraZoomSlider.value = "1";
+        cameraZoomSlider.disabled = true;
+    }
+    if (cameraZoomPanel) cameraZoomPanel.classList.remove("active");
+}
+
+async function setupCameraZoom(track) {
+    resetCameraZoomState();
+    currentCameraTrack = track || null;
+    if (!track) return;
+
+    let capabilities = {};
+    try {
+        capabilities = track.getCapabilities ? (track.getCapabilities() || {}) : {};
+    } catch (e) {
+        capabilities = {};
+    }
+
+    const zoomCap = capabilities.zoom;
+    if (!zoomCap) return;
+
+    cameraSupportsZoom = true;
+    cameraZoomMin = Number(zoomCap.min ?? 1) || 1;
+    cameraZoomMax = Number(zoomCap.max ?? cameraZoomMin) || cameraZoomMin;
+    cameraZoomStep = Number(zoomCap.step ?? 0.1) || 0.1;
+
+    let currentValue = cameraZoomMin;
+    try {
+        const settings = track.getSettings ? (track.getSettings() || {}) : {};
+        currentValue = Number(settings.zoom ?? cameraZoomMin) || cameraZoomMin;
+    } catch (e) {
+        currentValue = cameraZoomMin;
+    }
+
+    if (cameraZoomSlider) {
+        cameraZoomSlider.min = String(cameraZoomMin);
+        cameraZoomSlider.max = String(cameraZoomMax);
+        cameraZoomSlider.step = String(cameraZoomStep);
+        cameraZoomSlider.disabled = false;
+    }
+    if (cameraZoomPanel) cameraZoomPanel.classList.add("active");
+    setCameraZoomUi(currentValue);
+}
+
+async function applyCameraZoom(value) {
+    const numeric = Number(value);
+    if (!cameraSupportsZoom || !currentCameraTrack || !Number.isFinite(numeric)) {
+        setCameraZoomUi(1);
+        return;
+    }
+
+    const clamped = Math.min(cameraZoomMax, Math.max(cameraZoomMin, numeric));
+    try {
+        await currentCameraTrack.applyConstraints({
+            advanced: [{ zoom: clamped }]
+        });
+        setCameraZoomUi(clamped);
+    } catch (error) {
+        console.error("카메라 줌 적용 실패", error);
+        setCameraZoomUi(currentCameraZoom || 1);
+    }
+}
+
+
 function resetCameraUi() {
     stopCameraStream();
     hideFullscreenCamera();
@@ -2017,6 +2170,8 @@ function resetCameraUi() {
     ocrBox.style.display = "none";
     ocrBox.style.pointerEvents = "none";
     cameraGuideText.style.display = "none";
+    if (cameraZoomPanel) cameraZoomPanel.classList.remove("active");
+    resetCameraZoomState();
 
     captureBtn.disabled = false;
     captureBtn.textContent = "촬영";
@@ -2059,7 +2214,9 @@ async function openFullscreenCamera() {
         });
 
         currentStream = stream;
+        currentCameraTrack = stream.getVideoTracks ? (stream.getVideoTracks()[0] || null) : null;
         cameraVideo.srcObject = stream;
+        await setupCameraZoom(currentCameraTrack);
 
         cameraPlaceholder.style.display = "none";
         cameraVideo.style.display = "block";
@@ -2094,6 +2251,7 @@ function stopCameraStream() {
         currentStream.getTracks().forEach(track => track.stop());
         currentStream = null;
     }
+    currentCameraTrack = null;
 }
 
 function closeFullscreenCamera() {
@@ -2142,6 +2300,7 @@ function captureShot() {
     rangeVisible = true;
     ocrBox.style.display = "none";
     cameraGuideText.style.display = "none";
+    resetCameraZoomState();
 
     captureBtn.textContent = "다시 찍기";
     if (rangeBtn) {
@@ -2177,33 +2336,55 @@ function getBoxRectRelativeToImage() {
 }
 
 
-function cleanupOcrText(text) {
-    return text
+function replaceLatinLookalikesToCyrillic(text) {
+    const map = {
+        "A":"А","a":"а","B":"В","C":"С","c":"с","E":"Е","e":"е","H":"Н","K":"К","k":"к","M":"М",
+        "O":"О","o":"о","P":"Р","p":"р","T":"Т","X":"Х","x":"х","Y":"У","y":"у"
+    };
+    return String(text || "").replace(/[AaBCcEeHKkMOPpTXxYyo]/g, ch => map[ch] || ch);
+}
+
+function filterToMongolianText(text) {
+    return replaceLatinLookalikesToCyrillic(text || "")
         .replace(/\r/g, "\n")
+        .replace(/[0-9]/g, " ")
+        .replace(/[^\u0400-\u04FF\s]/g, " ")
         .replace(/[ \t]+/g, " ")
         .replace(/\n{2,}/g, "\n")
+        .replace(/ *\n */g, "\n")
         .trim();
 }
 
+function cleanupOcrText(text) {
+    return filterToMongolianText(text || "");
+}
+
 function scoreCandidate(text) {
-    const cleaned = cleanupOcrText(text || "");
+    const raw = String(text || "");
+    const cleaned = cleanupOcrText(raw);
     if (!cleaned) return 0;
 
-    const normalized = cleaned.replace(/\s/g, "");
-    if (!normalized) return 0;
+    const compact = cleaned.replace(/\s/g, "");
+    if (compact.length < 2) return -20;
 
-    const cyrillicMatches = normalized.match(/[\u0400-\u04FF]/g) || [];
-    const latinMatches = normalized.match(/[A-Za-z]/g) || [];
-    const digitMatches = normalized.match(/[0-9]/g) || [];
+    const cyrillicMatches = compact.match(/[\u0400-\u04FF]/g) || [];
+    const rawLatinMatches = raw.match(/[A-Za-z]/g) || [];
+    const rawDigitMatches = raw.match(/[0-9]/g) || [];
+    const repeated = compact.match(/(.)\1{3,}/g) || [];
+
+    const cyrRatio = compact.length ? cyrillicMatches.length / compact.length : 0;
 
     let score = 0;
-    score += cleaned.length;
-    score += cyrillicMatches.length * 3;
-    score -= latinMatches.length * 1.5;
-    score += digitMatches.length * 0.5;
+    score += compact.length * 3.2;
+    score += cyrillicMatches.length * 2.6;
+    score += cyrRatio * 22;
+    score -= rawLatinMatches.length * 5;
+    score -= rawDigitMatches.length * 2.5;
+    score -= repeated.length * 8;
 
-    if (cleaned.length < 2) score -= 8;
-    if (cyrillicMatches.length === 0) score -= 12;
+    if (compact.length < 2) score -= 20;
+    if (cyrRatio < 0.8) score -= 30;
+    if (rawLatinMatches.length >= 2) score -= 25;
 
     return score;
 }
@@ -2309,25 +2490,32 @@ function padCanvas(source, pad = 8) {
 function normalizeOcrVote(text) {
     return cleanupOcrText(text || "")
         .toLowerCase()
-        .replace(/[.,!?;:'"`~^*_+=|\\/()[\]{}<>]/g, "")
-        .replace(/[\u2018\u2019\u201C\u201D]/g, "")
-        .replace(/0/g, "о")
-        .replace(/5/g, "s")
-        .replace(/1/g, "l")
         .replace(/\s+/g, " ")
         .trim();
 }
 
 function isMeaningfulOcrText(text) {
-    const cleaned = cleanupOcrText(text || "");
+    const raw = String(text || "");
+    const cleaned = cleanupOcrText(raw);
     if (!cleaned) return false;
     if (cleaned.length < 2) return false;
 
     const compact = cleaned.replace(/\s/g, "");
     if (compact.length < 2) return false;
 
-    const usefulChars = compact.match(/[\u0400-\u04FFA-Za-z0-9]/g) || [];
-    return usefulChars.length >= 2;
+    const cyrillicChars = compact.match(/[\u0400-\u04FF]/g) || [];
+    const rawLatinChars = raw.match(/[A-Za-z]/g) || [];
+    const rawDigitChars = raw.match(/[0-9]/g) || [];
+    const repeated = compact.match(/(.)\1{3,}/g) || [];
+
+    const ratio = compact.length ? cyrillicChars.length / compact.length : 0;
+
+    if (ratio < 0.8) return false;
+    if (rawLatinChars.length >= 2) return false;
+    if (rawDigitChars.length > compact.length / 2) return false;
+    if (repeated.length) return false;
+
+    return cyrillicChars.length >= 2;
 }
 
 function chooseBestVotedCandidate(results) {
@@ -2466,9 +2654,18 @@ function releaseAttemptCanvases(attempts) {
 }
 
 async function createFreshCameraWorker() {
-    return await Tesseract.createWorker("mon", 1, {
+    const worker = await Tesseract.createWorker("mon", 1, {
         logger: () => {}
     });
+    try {
+        await worker.setParameters({
+            tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
+            preserve_interword_spaces: "1"
+        });
+    } catch (e) {
+        console.error(e);
+    }
+    return worker;
 }
 
 async function safeTerminateWorker(worker) {
