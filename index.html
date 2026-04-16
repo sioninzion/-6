@@ -861,7 +861,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver18</div>
+<div class="version">ver18.1</div>
 <button class="mode-switch" id="modeSwitchBtn" onclick="handleModeSwitch()">📷</button>
 
 <div id="mainPage" class="page">
@@ -1275,6 +1275,8 @@ const rangeBtn = document.getElementById("rangeBtn");
 const recognizeBtn = document.getElementById("recognizeBtn");
 const ocrBox = document.getElementById("ocrBox");
 const cameraProgress = document.getElementById("cameraProgress");
+const cameraRecognizedText = document.getElementById("cameraRecognizedText");
+const cameraTranslatedText = document.getElementById("cameraTranslatedText");
 
 function handleModeSwitch() {
     if (cameraOcrRunning) {
@@ -1613,18 +1615,20 @@ function closeGearMenu() {
 
 /* camera ui */
 function setCameraText(recognized, translated, recognizedPlaceholder = false, translatedPlaceholder = false) {
-    const recog = document.getElementById("cameraRecognizedText");
-    const trans = document.getElementById("cameraTranslatedText");
+    cameraRecognizedText.textContent = recognized;
+    cameraTranslatedText.textContent = translated;
 
-    recog.textContent = recognized;
-    trans.textContent = translated;
-
-    recog.classList.toggle("placeholder", recognizedPlaceholder);
-    trans.classList.toggle("placeholder", translatedPlaceholder);
+    cameraRecognizedText.classList.toggle("placeholder", recognizedPlaceholder);
+    cameraTranslatedText.classList.toggle("placeholder", translatedPlaceholder);
 }
 
 function updateCameraProgress(text) {
     cameraProgress.textContent = text;
+}
+
+function updateOcrStage(baseText) {
+    cameraRecognizedText.textContent = baseText + ".".repeat(progressDots);
+    cameraRecognizedText.classList.add("placeholder");
 }
 
 function startProgressDots(baseText) {
@@ -1632,9 +1636,13 @@ function startProgressDots(baseText) {
     progressBaseText = baseText;
     progressDots = 1;
     cameraProgress.textContent = progressBaseText + ".".repeat(progressDots);
+    updateOcrStage(progressBaseText);
+
     progressInterval = setInterval(() => {
         progressDots = progressDots >= 3 ? 1 : progressDots + 1;
-        cameraProgress.textContent = progressBaseText + ".".repeat(progressDots);
+        const text = progressBaseText + ".".repeat(progressDots);
+        cameraProgress.textContent = text;
+        cameraRecognizedText.textContent = text;
     }, 300);
 }
 
@@ -1663,6 +1671,7 @@ function resetCameraUi() {
     cameraPlaceholder.innerHTML = "카메라를 열면 이곳에 크게 표시됩니다";
 
     ocrBox.style.display = "none";
+    ocrBox.style.pointerEvents = "";
 
     captureBtn.disabled = false;
     captureBtn.textContent = "촬영";
@@ -1706,6 +1715,7 @@ async function openFullscreenCamera() {
         cameraVideo.style.display = "block";
         cameraSnapshot.style.display = "none";
         ocrBox.style.display = "none";
+        ocrBox.style.pointerEvents = "";
 
         captureBtn.disabled = false;
         captureBtn.textContent = "촬영";
@@ -1787,8 +1797,8 @@ function toggleRangeBox() {
 }
 
 function resetRangeBox() {
-    const boxWidth = Math.min(window.innerWidth * 0.42, 260);
-    const boxHeight = Math.min(window.innerHeight * 0.16, 120);
+    const boxWidth = Math.min(window.innerWidth * 0.34, 220);
+    const boxHeight = Math.min(window.innerHeight * 0.12, 100);
 
     ocrBox.style.width = boxWidth + "px";
     ocrBox.style.height = boxHeight + "px";
@@ -1824,44 +1834,77 @@ async function ensureCameraWorker() {
     return cameraWorker;
 }
 
+/* 18.1 speed optimization */
+function buildOptimizedOcrCanvas() {
+    const { sx, sy, sw, sh } = getBoxRectRelativeToImage();
+
+    const rawCanvas = document.createElement("canvas");
+    rawCanvas.width = sw;
+    rawCanvas.height = sh;
+    const rawCtx = rawCanvas.getContext("2d");
+    rawCtx.drawImage(cameraSnapshot, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    const maxWidth = 900;
+    const scale = Math.min(1, maxWidth / sw);
+    const finalW = Math.max(1, Math.round(sw * scale));
+    const finalH = Math.max(1, Math.round(sh * scale));
+
+    const finalCanvas = document.createElement("canvas");
+    finalCanvas.width = finalW;
+    finalCanvas.height = finalH;
+    const finalCtx = finalCanvas.getContext("2d");
+    finalCtx.drawImage(rawCanvas, 0, 0, finalW, finalH);
+
+    const imageData = finalCtx.getImageData(0, 0, finalW, finalH);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        let gray = r * 0.299 + g * 0.587 + b * 0.114;
+        gray = gray > 145 ? 255 : gray < 110 ? 0 : gray;
+
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
+    }
+
+    finalCtx.putImageData(imageData, 0, 0);
+    return finalCanvas;
+}
+
 async function startRecognitionFlow() {
     if (!cameraShotTaken || !rangeVisible || cameraOcrRunning) return;
 
     cameraOcrRunning = true;
     const token = ++cameraAbortToken;
 
-    // lock box and controls
     captureBtn.disabled = true;
     rangeBtn.disabled = true;
     recognizeBtn.disabled = true;
     ocrBox.style.pointerEvents = "none";
 
-    // close fullscreen camera immediately
     hideFullscreenCamera();
 
     setCameraText("OCR 인식 중...", "번역 대기 중...", true, true);
 
     try {
         startProgressDots("OCR 인식 중");
-        const { sx, sy, sw, sh } = getBoxRectRelativeToImage();
-
-        const cropCanvas = document.createElement("canvas");
-        cropCanvas.width = sw;
-        cropCanvas.height = sh;
-        const ctx = cropCanvas.getContext("2d");
-        ctx.drawImage(cameraSnapshot, sx, sy, sw, sh, 0, 0, sw, sh);
+        const ocrCanvas = buildOptimizedOcrCanvas();
 
         const worker = await ensureCameraWorker();
         if (token !== cameraAbortToken) return;
 
-        const { data } = await worker.recognize(cropCanvas);
+        const { data } = await worker.recognize(ocrCanvas);
         if (token !== cameraAbortToken) return;
 
         const rawText = (data.text || "").trim();
 
         stopProgressDots();
         startProgressDots("텍스트 후처리 중");
-        await sleep(350);
+        await sleep(250);
         if (token !== cameraAbortToken) return;
 
         const recognizedText = cleanupOcrText(rawText);
@@ -1873,15 +1916,18 @@ async function startRecognitionFlow() {
             return;
         }
 
-        setCameraText(recognizedText, "번역 요청 중...", false, true);
-
         stopProgressDots();
         startProgressDots("번역 요청 중");
-        await sleep(350);
+        cameraTranslatedText.textContent = "번역 요청 중.";
+        cameraTranslatedText.classList.add("placeholder");
+        await sleep(220);
         if (token !== cameraAbortToken) return;
 
         stopProgressDots();
         startProgressDots("번역 중");
+        cameraRecognizedText.textContent = recognizedText;
+        cameraRecognizedText.classList.remove("placeholder");
+
         const translatedKo = await translateMnToKo(recognizedText);
         if (token !== cameraAbortToken) return;
 
@@ -1917,6 +1963,8 @@ function abortCameraRecognition(reopenCamera = false) {
     cameraOcrRunning = false;
     stopProgressDots("작업을 중단했습니다.");
     ocrBox.style.pointerEvents = "";
+
+    setCameraText("작업을 중단했습니다.", "다시 시도해 주세요.", true, true);
 
     if (reopenCamera) {
         openFullscreenCamera();
@@ -1980,7 +2028,7 @@ function moveBoxAction(clientX, clientY) {
     let height = startHeight;
 
     const minW = 40;
-    const minH = 28;
+    const minH = 24;
 
     if (dragMode === "move") {
         left = startLeft + dx;
