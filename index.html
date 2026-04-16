@@ -25,12 +25,53 @@ body {
     right: 14px;
     color: gray;
     font-size: 12px;
-    z-index: 30;
+    z-index: 50;
+}
+
+.mode-switch {
+    position: fixed;
+    top: 10px;
+    left: 14px;
+    width: 50px;
+    height: 50px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.95);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.10);
+    cursor: pointer;
+    font-size: 22px;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.mode-switch:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.14);
+}
+
+.mode-switch:active {
+    transform: scale(0.96);
+}
+
+.page {
+    width: 100%;
+}
+
+#mainPage {
+    display: block;
+}
+
+#cameraPage {
+    display: none;
 }
 
 h1 {
-    margin: 18px 0 8px;
-    font-size: 28px;
+    margin: 12px 0 8px;
+    font-size: 24px;
+    padding-top: 10px;
 }
 
 .subtitle {
@@ -75,7 +116,11 @@ input:focus {
 .screen-btn,
 .gear-button,
 .gear-menu button,
-.exit-button {
+.exit-button,
+.camera-open-btn,
+.camera-action-btn,
+.camera-secondary-btn,
+.crop-confirm-btn {
     border: none;
     cursor: pointer;
     font-size: 15px;
@@ -116,7 +161,9 @@ input:focus {
 }
 
 .result-card,
-.history-card {
+.history-card,
+.camera-box,
+.camera-stage-card {
     background: white;
     border-radius: 14px;
     padding: 16px 18px;
@@ -218,7 +265,6 @@ input:focus {
     border-radius: 10px;
 }
 
-/* 선택 복사 패널 */
 .copy-panel {
     position: absolute;
     right: 0;
@@ -276,6 +322,185 @@ input:focus {
     font-weight: 700;
     cursor: pointer;
     writing-mode: horizontal-tb;
+}
+
+/* 카메라 모드 */
+.camera-page-wrap {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 12px 16px 28px;
+}
+
+.camera-title {
+    margin: 12px 0 10px;
+    font-size: 24px;
+    padding-top: 10px;
+    font-weight: 700;
+}
+
+.camera-subtitle {
+    color: gray;
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 0 auto 16px;
+    max-width: 760px;
+    padding: 0 12px;
+}
+
+.camera-open-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 140px;
+    height: 52px;
+    padding: 0 24px;
+    border-radius: 999px;
+    background: #2d8cff;
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 6px 16px rgba(45,140,255,0.24);
+    margin: 4px auto 12px;
+}
+
+.camera-open-btn:active {
+    transform: scale(0.98);
+}
+
+.camera-mini-hint {
+    font-size: 12px;
+    color: gray;
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+
+.camera-stage-card {
+    margin-top: 8px;
+    padding: 14px;
+}
+
+.camera-stage-label {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 10px;
+    font-weight: 700;
+    text-align: left;
+}
+
+.video-wrap,
+.capture-wrap,
+.crop-preview-wrap {
+    width: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #dfe6ef;
+    position: relative;
+}
+
+#cameraVideo,
+#capturedImage,
+#cropCanvas {
+    width: 100%;
+    display: block;
+    background: #dfe6ef;
+}
+
+#capturedImage,
+#cropCanvas {
+    touch-action: none;
+}
+
+.video-placeholder {
+    height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7582;
+    font-weight: 700;
+    text-align: center;
+    padding: 20px;
+}
+
+.camera-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.camera-action-btn,
+.camera-secondary-btn,
+.crop-confirm-btn {
+    flex: 1;
+    min-width: 120px;
+    border-radius: 12px;
+    padding: 13px 14px;
+    font-weight: 700;
+}
+
+.camera-action-btn,
+.crop-confirm-btn {
+    background: #2d8cff;
+    color: white;
+}
+
+.camera-secondary-btn {
+    background: #e8edf5;
+    color: #222;
+}
+
+.camera-action-btn:disabled,
+.camera-secondary-btn:disabled,
+.crop-confirm-btn:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.crop-guide {
+    margin-top: 10px;
+    color: #666;
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: left;
+}
+
+.camera-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.camera-box {
+    min-height: 140px;
+    padding: 18px;
+}
+
+.camera-box-label {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+.camera-box-content {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.7;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.camera-box-content.placeholder {
+    color: #a2a9b3;
+    font-weight: 600;
+    font-size: 17px;
+}
+
+.camera-arrow {
+    font-size: 28px;
+    color: #7d8896;
+    line-height: 1;
 }
 
 /* 스크린 모드 */
@@ -431,18 +656,36 @@ input:focus {
 }
 
 @media (max-width: 768px) {
-    h1 {
-        font-size: 24px;
-        margin-top: 16px;
+    .mode-switch {
+        top: 10px;
+        left: 12px;
+        width: 50px;
+        height: 50px;
+        font-size: 21px;
     }
 
-    .subtitle {
+    .version {
+        top: 12px;
+        right: 12px;
+        font-size: 12px;
+    }
+
+    h1,
+    .camera-title {
+        font-size: 22px;
+        margin-top: 10px;
+        padding-top: 14px;
+    }
+
+    .subtitle,
+    .camera-subtitle {
         font-size: 11px;
         padding: 0 12px;
         margin-bottom: 12px;
     }
 
-    .container {
+    .container,
+    .camera-page-wrap {
         max-width: none;
         padding: 12px 12px 20px;
     }
@@ -472,7 +715,9 @@ input:focus {
     }
 
     .result-card,
-    .history-card {
+    .history-card,
+    .camera-box,
+    .camera-stage-card {
         padding: 16px;
         border-radius: 14px;
     }
@@ -545,6 +790,55 @@ input:focus {
         font-size: 16px;
     }
 
+    .camera-open-btn {
+        width: 100%;
+        min-width: 0;
+        height: 54px;
+        font-size: 17px;
+        border-radius: 24px;
+        margin-bottom: 10px;
+    }
+
+    .camera-actions {
+        flex-direction: column;
+    }
+
+    .camera-action-btn,
+    .camera-secondary-btn,
+    .crop-confirm-btn {
+        width: 100%;
+        min-width: 0;
+        font-size: 16px;
+        padding: 14px 15px;
+    }
+
+    .video-placeholder {
+        height: 220px;
+        font-size: 15px;
+    }
+
+    .camera-box {
+        min-height: 126px;
+    }
+
+    .camera-box-label {
+        font-size: 12px;
+    }
+
+    .camera-box-content {
+        font-size: 19px;
+        line-height: 1.75;
+    }
+
+    .camera-box-content.placeholder {
+        font-size: 16px;
+        line-height: 1.65;
+    }
+
+    .camera-arrow {
+        font-size: 26px;
+    }
+
     #screenContent {
         max-width: 92vw;
     }
@@ -595,25 +889,85 @@ input:focus {
 </head>
 
 <body>
-<div class="version">ver15.1</div>
+<div class="version">ver16</div>
+<button class="mode-switch" id="modeSwitchBtn" onclick="toggleMode()">📷</button>
 
-<h1>🇲🇳 신나는 몽골어 번역기</h1>
-<div class="subtitle">
-너는 말씀을 전파하라. 때를 얻든지 못 얻든지 항상 힘쓰라. 범사에 오래 참음과 가르침으로 경책하며 경계하며 권하라<br>
-디모데후서 4:2
-</div>
-
-<div class="container">
-    <div class="input-row">
-        <input type="text" id="input" placeholder="한국어 입력">
-        <button class="main-btn" id="translateBtn" onclick="run()">변환</button>
+<!-- 일반 모드 -->
+<div id="mainPage" class="page">
+    <h1>🇲🇳 신나는 몽골어 번역기</h1>
+    <div class="subtitle">
+        너는 말씀을 전파하라. 때를 얻든지 못 얻든지 항상 힘쓰라. 범사에 오래 참음과 가르침으로 경책하며 경계하며 권하라<br>
+        디모데후서 4:2
     </div>
 
-    <div class="hint">(몽골어)/(로마표기)/(한국독음) 으로 표시됩니다.</div>
-    <div class="loading-text" id="loadingText"></div>
+    <div class="container">
+        <div class="input-row">
+            <input type="text" id="input" placeholder="한국어 입력">
+            <button class="main-btn" id="translateBtn" onclick="run()">변환</button>
+        </div>
 
-    <div class="result" id="result"></div>
-    <div class="history" id="history"></div>
+        <div class="hint">(몽골어)/(로마표기)/(한국독음) 으로 표시됩니다.</div>
+        <div class="loading-text" id="loadingText"></div>
+
+        <div class="result" id="result"></div>
+        <div class="history" id="history"></div>
+    </div>
+</div>
+
+<!-- 카메라 모드 -->
+<div id="cameraPage" class="page">
+    <div class="camera-page-wrap">
+        <div class="camera-title">신나는 카메라 번역기</div>
+        <div class="camera-subtitle">
+            카메라로 장면을 찍고, 필요한 몽골어 부분만 지정해 인식하는 모드입니다
+        </div>
+
+        <button class="camera-open-btn" type="button" onclick="openCamera()">카메라</button>
+        <div class="camera-mini-hint">촬영 후 드래그해서 원하는 부분만 남긴 뒤 인식할 수 있어요</div>
+
+        <div class="camera-stage-card">
+            <div class="camera-stage-label">카메라 화면 / 촬영 화면</div>
+
+            <div class="video-wrap" id="videoWrap">
+                <video id="cameraVideo" autoplay playsinline muted style="display:none;"></video>
+                <img id="capturedImage" alt="촬영 이미지" style="display:none;">
+                <canvas id="cropCanvas" style="display:none;"></canvas>
+
+                <div class="video-placeholder" id="videoPlaceholder">
+                    아직 카메라가 열리지 않았습니다<br>
+                    위의 카메라 버튼을 눌러 시작하세요
+                </div>
+            </div>
+
+            <div class="camera-actions">
+                <button class="camera-action-btn" id="captureBtn" onclick="captureFrame()" disabled>촬영</button>
+                <button class="camera-secondary-btn" id="retakeBtn" onclick="retakePhoto()" disabled>다시 찍기</button>
+                <button class="crop-confirm-btn" id="recognizeBtn" onclick="recognizeSelectedArea()" disabled>이 영역으로 인식</button>
+            </div>
+
+            <div class="crop-guide" id="cropGuide">
+                카메라를 연 뒤 촬영하세요. 촬영 후에는 이미지 위를 드래그해서 몽골어 부분만 선택할 수 있습니다.
+            </div>
+        </div>
+
+        <div class="camera-flow">
+            <div class="camera-box">
+                <div class="camera-box-label">인식된 몽골어</div>
+                <div class="camera-box-content placeholder" id="cameraRecognizedText">
+                    인식 결과가 여기에 표시됩니다
+                </div>
+            </div>
+
+            <div class="camera-arrow">↓</div>
+
+            <div class="camera-box">
+                <div class="camera-box-label">한국어 번역 결과</div>
+                <div class="camera-box-content placeholder" id="cameraTranslatedText">
+                    번역 결과가 여기에 표시됩니다
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="screenMode">
@@ -721,7 +1075,7 @@ const glossaryBook = [
     ["맛있게 드세요(식사)", "사이항 호올로오래"],
     ["이것이 맞습니까?", "엔 문 우?"],
     ["이것이 아닙니까?", "엔 비시우?"],
-    ["화장실이 어디예요?", "아ри온 체웨рин 오ро 한-웨"],
+    ["화장실이 어디예요?", "아리온 체웨린 오로 한-웨"],
     ["왼쪽으로 가세요", "준티쉐 야브노"],
     ["오른쪽으로 가세요", "바론티쉐 야브노"],
     ["똑바로 가세요", "치게레 야브노"],
@@ -933,6 +1287,37 @@ let gearMenuOpen = false;
 let screenLabelVisible = true;
 let currentScreenTextValue = "";
 let openCopyPanelId = null;
+let isCameraMode = false;
+
+/* 카메라 관련 상태 */
+let currentStream = null;
+let capturedImageDataUrl = "";
+let selectionRect = null;
+let isDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let cropCanvasCtx = null;
+
+const OCR_API_URL = "YOUR_OCR_API_URL";
+const TRANSLATE_API_URL = "YOUR_TRANSLATE_API_URL";
+
+function toggleMode(forceMode) {
+    if (forceMode === "camera") {
+        isCameraMode = true;
+    } else if (forceMode === "main") {
+        isCameraMode = false;
+    } else {
+        isCameraMode = !isCameraMode;
+    }
+
+    document.getElementById("mainPage").style.display = isCameraMode ? "none" : "block";
+    document.getElementById("cameraPage").style.display = isCameraMode ? "block" : "none";
+    document.getElementById("modeSwitchBtn").textContent = isCameraMode ? "✏️" : "📷";
+
+    if (!isCameraMode) {
+        stopCameraStream();
+    }
+}
 
 function applyScreenTextSize() {
     document.getElementById("screenText").style.fontSize = screenFontSize + "px";
@@ -1215,6 +1600,7 @@ function clearAllData() {
     currentScreenTextValue = "";
     closeCopyPanels();
     closeScreen();
+    resetCameraUi();
     showToast("초기화됨!");
 }
 
@@ -1234,6 +1620,405 @@ function toggleGearMenu(event) {
 function closeGearMenu() {
     gearMenuOpen = false;
     document.getElementById("gearMenu").classList.remove("open");
+}
+
+/* 카메라 UI */
+function setCameraText(recognized, translated, recognizedPlaceholder = false, translatedPlaceholder = false) {
+    const recogBox = document.getElementById("cameraRecognizedText");
+    const transBox = document.getElementById("cameraTranslatedText");
+
+    recogBox.textContent = recognized;
+    transBox.textContent = translated;
+
+    recogBox.classList.toggle("placeholder", recognizedPlaceholder);
+    transBox.classList.toggle("placeholder", translatedPlaceholder);
+}
+
+function resetCameraUi() {
+    stopCameraStream();
+    capturedImageDataUrl = "";
+    selectionRect = null;
+    isDragging = false;
+
+    const video = document.getElementById("cameraVideo");
+    const capturedImage = document.getElementById("capturedImage");
+    const cropCanvas = document.getElementById("cropCanvas");
+    const placeholder = document.getElementById("videoPlaceholder");
+
+    video.style.display = "none";
+    capturedImage.style.display = "none";
+    cropCanvas.style.display = "none";
+    placeholder.style.display = "flex";
+    placeholder.innerHTML = "아직 카메라가 열리지 않았습니다<br>위의 카메라 버튼을 눌러 시작하세요";
+
+    document.getElementById("captureBtn").disabled = true;
+    document.getElementById("retakeBtn").disabled = true;
+    document.getElementById("recognizeBtn").disabled = true;
+    document.getElementById("cropGuide").textContent = "카메라를 연 뒤 촬영하세요. 촬영 후에는 이미지 위를 드래그해서 몽골어 부분만 선택할 수 있습니다.";
+
+    setCameraText(
+        "인식 결과가 여기에 표시됩니다",
+        "번역 결과가 여기에 표시됩니다",
+        true,
+        true
+    );
+}
+
+async function openCamera() {
+    const video = document.getElementById("cameraVideo");
+    const placeholder = document.getElementById("videoPlaceholder");
+    const capturedImage = document.getElementById("capturedImage");
+    const cropCanvas = document.getElementById("cropCanvas");
+
+    try {
+        stopCameraStream();
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: "environment" }
+            },
+            audio: false
+        });
+
+        currentStream = stream;
+        video.srcObject = stream;
+
+        video.style.display = "block";
+        capturedImage.style.display = "none";
+        cropCanvas.style.display = "none";
+        placeholder.style.display = "none";
+
+        document.getElementById("captureBtn").disabled = false;
+        document.getElementById("retakeBtn").disabled = true;
+        document.getElementById("recognizeBtn").disabled = true;
+        document.getElementById("cropGuide").textContent = "장면이 잘 보이면 촬영 버튼을 눌러주세요.";
+
+        setCameraText(
+            "인식 결과가 여기에 표시됩니다",
+            "번역 결과가 여기에 표시됩니다",
+            true,
+            true
+        );
+    } catch (error) {
+        console.error(error);
+        placeholder.style.display = "flex";
+        placeholder.innerHTML = "카메라를 열 수 없습니다.<br>브라우저 권한을 확인해 주세요.";
+        video.style.display = "none";
+        capturedImage.style.display = "none";
+        cropCanvas.style.display = "none";
+        document.getElementById("captureBtn").disabled = true;
+        document.getElementById("retakeBtn").disabled = true;
+        document.getElementById("recognizeBtn").disabled = true;
+        showToast("카메라 권한 확인");
+    }
+}
+
+function stopCameraStream() {
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+    }
+}
+
+function captureFrame() {
+    const video = document.getElementById("cameraVideo");
+    if (!video.videoWidth || !video.videoHeight) return;
+
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = video.videoWidth;
+    tempCanvas.height = video.videoHeight;
+    const ctx = tempCanvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+
+    capturedImageDataUrl = tempCanvas.toDataURL("image/jpeg", 0.95);
+
+    const capturedImage = document.getElementById("capturedImage");
+    const cropCanvas = document.getElementById("cropCanvas");
+
+    capturedImage.src = capturedImageDataUrl;
+    capturedImage.style.display = "none";
+    video.style.display = "none";
+    cropCanvas.style.display = "block";
+    document.getElementById("videoPlaceholder").style.display = "none";
+
+    document.getElementById("captureBtn").disabled = true;
+    document.getElementById("retakeBtn").disabled = false;
+    document.getElementById("recognizeBtn").disabled = true;
+    document.getElementById("cropGuide").textContent = "이미지 위를 드래그해서 몽골어 부분을 선택하세요. 선택 후 '이 영역으로 인식'을 누르면 됩니다.";
+
+    stopCameraStream();
+    initCropCanvas();
+}
+
+function retakePhoto() {
+    selectionRect = null;
+    capturedImageDataUrl = "";
+    openCamera();
+}
+
+function initCropCanvas() {
+    const cropCanvas = document.getElementById("cropCanvas");
+    const image = new Image();
+
+    image.onload = () => {
+        const maxWidth = cropCanvas.parentElement.clientWidth;
+        const ratio = image.height / image.width;
+
+        cropCanvas.width = maxWidth;
+        cropCanvas.height = maxWidth * ratio;
+
+        cropCanvasCtx = cropCanvas.getContext("2d");
+        cropCanvas.dataset.sourceWidth = image.width;
+        cropCanvas.dataset.sourceHeight = image.height;
+
+        selectionRect = null;
+        drawCropCanvas(image);
+    };
+
+    image.src = capturedImageDataUrl;
+}
+
+function drawCropCanvas(imageObj) {
+    const cropCanvas = document.getElementById("cropCanvas");
+    const ctx = cropCanvasCtx;
+    if (!ctx || !imageObj) return;
+
+    ctx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+    ctx.drawImage(imageObj, 0, 0, cropCanvas.width, cropCanvas.height);
+
+    if (selectionRect) {
+        const { x, y, w, h } = selectionRect;
+
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+        ctx.clearRect(x, y, w, h);
+        ctx.drawImage(imageObj, x, y, w, h, x, y, w, h);
+
+        ctx.strokeStyle = "#2d8cff";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+    }
+}
+
+function getCanvasPointFromEvent(event) {
+    const cropCanvas = document.getElementById("cropCanvas");
+    const rect = cropCanvas.getBoundingClientRect();
+
+    let clientX, clientY;
+    if (event.touches && event.touches.length > 0) {
+        clientX = event.touches[0].clientX;
+        clientY = event.touches[0].clientY;
+    } else {
+        clientX = event.clientX;
+        clientY = event.clientY;
+    }
+
+    return {
+        x: Math.max(0, Math.min(cropCanvas.width, clientX - rect.left)),
+        y: Math.max(0, Math.min(cropCanvas.height, clientY - rect.top))
+    };
+}
+
+function normalizeRect(x1, y1, x2, y2) {
+    const x = Math.min(x1, x2);
+    const y = Math.min(y1, y2);
+    const w = Math.abs(x2 - x1);
+    const h = Math.abs(y2 - y1);
+    return { x, y, w, h };
+}
+
+function setupCropEvents() {
+    const cropCanvas = document.getElementById("cropCanvas");
+    if (cropCanvas.dataset.eventsBound === "true") return;
+    cropCanvas.dataset.eventsBound = "true";
+
+    const startDrag = (event) => {
+        if (!capturedImageDataUrl) return;
+        event.preventDefault();
+        isDragging = true;
+        const point = getCanvasPointFromEvent(event);
+        dragStartX = point.x;
+        dragStartY = point.y;
+        selectionRect = { x: point.x, y: point.y, w: 0, h: 0 };
+        redrawCurrentCrop();
+    };
+
+    const moveDrag = (event) => {
+        if (!isDragging) return;
+        event.preventDefault();
+        const point = getCanvasPointFromEvent(event);
+        selectionRect = normalizeRect(dragStartX, dragStartY, point.x, point.y);
+        redrawCurrentCrop();
+    };
+
+    const endDrag = (event) => {
+        if (!isDragging) return;
+        event.preventDefault();
+        isDragging = false;
+
+        if (!selectionRect || selectionRect.w < 12 || selectionRect.h < 12) {
+            selectionRect = null;
+            document.getElementById("recognizeBtn").disabled = true;
+        } else {
+            document.getElementById("recognizeBtn").disabled = false;
+        }
+
+        redrawCurrentCrop();
+    };
+
+    cropCanvas.addEventListener("mousedown", startDrag);
+    cropCanvas.addEventListener("mousemove", moveDrag);
+    window.addEventListener("mouseup", endDrag);
+
+    cropCanvas.addEventListener("touchstart", startDrag, { passive: false });
+    cropCanvas.addEventListener("touchmove", moveDrag, { passive: false });
+    window.addEventListener("touchend", endDrag, { passive: false });
+}
+
+function redrawCurrentCrop() {
+    if (!capturedImageDataUrl) return;
+    const image = new Image();
+    image.onload = () => drawCropCanvas(image);
+    image.src = capturedImageDataUrl;
+}
+
+function getSelectedCropBlob() {
+    return new Promise((resolve, reject) => {
+        if (!selectionRect || !capturedImageDataUrl) {
+            reject(new Error("선택된 영역이 없습니다."));
+            return;
+        }
+
+        const sourceImage = new Image();
+        sourceImage.onload = () => {
+            const cropCanvas = document.getElementById("cropCanvas");
+            const scaleX = sourceImage.width / cropCanvas.width;
+            const scaleY = sourceImage.height / cropCanvas.height;
+
+            const sx = Math.round(selectionRect.x * scaleX);
+            const sy = Math.round(selectionRect.y * scaleY);
+            const sw = Math.round(selectionRect.w * scaleX);
+            const sh = Math.round(selectionRect.h * scaleY);
+
+            const outCanvas = document.createElement("canvas");
+            outCanvas.width = sw;
+            outCanvas.height = sh;
+            const outCtx = outCanvas.getContext("2d");
+            outCtx.drawImage(sourceImage, sx, sy, sw, sh, 0, 0, sw, sh);
+
+            outCanvas.toBlob((blob) => {
+                if (!blob) {
+                    reject(new Error("영역 이미지 생성 실패"));
+                    return;
+                }
+                resolve(blob);
+            }, "image/jpeg", 0.95);
+        };
+        sourceImage.onerror = reject;
+        sourceImage.src = capturedImageDataUrl;
+    });
+}
+
+async function recognizeSelectedArea() {
+    if (!selectionRect) {
+        showToast("영역을 먼저 선택");
+        return;
+    }
+
+    const recognizeBtn = document.getElementById("recognizeBtn");
+    const retakeBtn = document.getElementById("retakeBtn");
+
+    recognizeBtn.disabled = true;
+    retakeBtn.disabled = true;
+
+    setCameraText("인식 중입니다...", "번역 대기 중입니다...", true, true);
+
+    try {
+        const blob = await getSelectedCropBlob();
+
+        const recognizedMn = await requestMongolianOcr(blob);
+        setCameraText(
+            recognizedMn || "몽골어를 인식하지 못했습니다.",
+            "번역 중입니다...",
+            !recognizedMn,
+            true
+        );
+
+        if (!recognizedMn) {
+            throw new Error("인식 결과 없음");
+        }
+
+        const translatedKo = await requestTranslateMnToKo(recognizedMn);
+        setCameraText(
+            recognizedMn,
+            translatedKo || "번역 결과를 가져오지 못했습니다.",
+            false,
+            !translatedKo
+        );
+
+        showToast("인식 완료");
+    } catch (error) {
+        console.error(error);
+        setCameraText(
+            "인식 중 오류가 발생했습니다.",
+            "번역 중 오류가 발생했습니다.",
+            true,
+            true
+        );
+        showToast("인식 실패");
+    } finally {
+        recognizeBtn.disabled = false;
+        retakeBtn.disabled = false;
+    }
+}
+
+async function requestMongolianOcr(imageBlob) {
+    if (OCR_API_URL === "YOUR_OCR_API_URL") {
+        throw new Error("OCR API 주소를 입력하세요.");
+    }
+
+    const formData = new FormData();
+    formData.append("image", imageBlob, "crop.jpg");
+    formData.append("sourceLang", "mn");
+
+    const response = await fetch(OCR_API_URL, {
+        method: "POST",
+        body: formData
+    });
+
+    if (!response.ok) {
+        throw new Error("OCR 요청 실패");
+    }
+
+    const data = await response.json();
+    return data.text || "";
+}
+
+async function requestTranslateMnToKo(mongolianText) {
+    if (TRANSLATE_API_URL === "YOUR_TRANSLATE_API_URL") {
+        throw new Error("번역 API 주소를 입력하세요.");
+    }
+
+    const response = await fetch(TRANSLATE_API_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            text: mongolianText,
+            sourceLang: "mn",
+            targetLang: "ko"
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error("번역 요청 실패");
+    }
+
+    const data = await response.json();
+    return data.translatedText || "";
 }
 
 document.getElementById("input").addEventListener("keydown", e => {
@@ -1260,6 +2045,10 @@ document.addEventListener("click", (e) => {
         renderHistory();
     }
 });
+
+setupCropEvents();
+resetCameraUi();
+toggleMode("main");
 </script>
 </body>
 </html>
