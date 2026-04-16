@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>🇲🇳 신나는 몽골어 번역기 ver19.10</title>
+<title>🇲🇳 신나는 몽골어 번역기 ver19.11</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 * { box-sizing: border-box; }
@@ -391,7 +391,7 @@ input:focus { border-color: #2d8cff; }
 .camera-guide-text {
     position: absolute;
     left: 50%;
-    top: calc(50% - 110px);
+    top: calc(50% - 120px);
     transform: translateX(-50%);
     z-index: 19;
     color: rgba(255,255,255,0.92);
@@ -404,56 +404,50 @@ input:focus { border-color: #2d8cff; }
     display: none;
 }
 
-
-.camera-zoom-panel {
+.camera-size-toggle {
     position: absolute;
-    left: 14px;
-    right: 14px;
-    bottom: 86px;
-    z-index: 20;
-    display: none;
-    padding: 10px 12px;
-    border-radius: 16px;
-    background: rgba(0,0,0,0.42);
+    left: 16px;
+    bottom: 18px;
+    z-index: 24;
+    width: 52px;
+    height: 52px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.16);
+    color: white;
+    font-size: 22px;
+    font-weight: 700;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    color: white;
-}
-.camera-zoom-panel.active { display: block; }
-.camera-zoom-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 8px;
-    font-size: 13px;
-    font-weight: 700;
-}
-.camera-zoom-value {
-    min-width: 42px;
-    text-align: right;
-}
-.camera-zoom-slider {
-    width: 100%;
-    margin: 0;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.22);
 }
 
 .camera-size-panel {
     position: absolute;
-    left: 14px;
-    right: 14px;
-    bottom: 146px;
-    z-index: 20;
-    display: none;
-    padding: 10px 12px;
-    border-radius: 16px;
-    background: rgba(0,0,0,0.42);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    left: 16px;
+    bottom: 80px;
+    width: min(320px, calc(100vw - 32px));
+    z-index: 24;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    background: rgba(0,0,0,0.46);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     color: white;
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease;
 }
-.camera-size-panel.active { display: block; }
-.camera-size-row + .camera-size-row { margin-top: 10px; }
+.camera-size-panel.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+.camera-size-row + .camera-size-row { margin-top: 2px; }
 .camera-size-row-top {
     display: flex;
     align-items: center;
@@ -463,23 +457,72 @@ input:focus { border-color: #2d8cff; }
     font-size: 13px;
     font-weight: 700;
 }
-.camera-size-value { min-width: 54px; text-align: right; }
+.camera-size-value { min-width: 56px; text-align: right; }
 .camera-size-slider { width: 100%; margin: 0; }
-.camera-scan-overlay {
+
+.camera-zoom-rail {
     position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(135deg, transparent 34%, rgba(45,140,255,0.0) 44%, rgba(45,140,255,0.72) 50%, rgba(45,140,255,0.0) 56%, transparent 66%);
-    opacity: 0;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    width: 52px;
+    height: 220px;
+    z-index: 24;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    opacity: 0.14;
+    transition: opacity 0.12s ease, background 0.12s ease;
+}
+.camera-zoom-rail.active {
+    opacity: 0.96;
+    background: rgba(255,255,255,0.16);
+}
+.camera-zoom-slider {
+    -webkit-appearance: slider-vertical;
+    appearance: slider-vertical;
+    writing-mode: bt-lr;
+    width: 38px;
+    height: 180px;
+    margin: 0;
+}
+.camera-zoom-value-badge {
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 44px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.44);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.camera-full-scan {
+    position: absolute;
+    inset: -35%;
     pointer-events: none;
+    opacity: 0;
+    z-index: 23;
+    background: linear-gradient(135deg,
+        transparent 44%,
+        rgba(45,140,255,0.00) 47%,
+        rgba(45,140,255,0.78) 50%,
+        rgba(45,140,255,0.00) 53%,
+        transparent 56%);
 }
-.camera-scan-overlay.active {
+.camera-full-scan.active {
     opacity: 1;
-    animation: cameraGuideScan 0.4s linear forwards;
+    animation: cameraFullScan 0.42s linear forwards;
 }
-@keyframes cameraGuideScan {
-    from { transform: translate(-110%, -110%); }
-    to { transform: translate(110%, 110%); }
+@keyframes cameraFullScan {
+    from { transform: translate(-120%, -120%); }
+    to { transform: translate(120%, 120%); }
 }
 
 #cameraFullscreen {
@@ -488,6 +531,8 @@ input:focus { border-color: #2d8cff; }
     background: #000;
     z-index: 1000;
     display: none;
+    overflow: hidden;
+    touch-action: manipulation;
 }
 #cameraFullscreen.active { display: block; }
 
@@ -519,7 +564,7 @@ input:focus { border-color: #2d8cff; }
     position: absolute;
     top: 14px;
     right: 14px;
-    z-index: 20;
+    z-index: 24;
     min-width: 88px;
     padding: 11px 14px;
     border-radius: 999px;
@@ -532,17 +577,18 @@ input:focus { border-color: #2d8cff; }
 
 .camera-fs-controls {
     position: absolute;
-    left: 14px;
-    right: 14px;
-    bottom: 14px;
-    z-index: 20;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    z-index: 24;
     display: flex;
-    gap: 10px;
+    justify-content: center;
+    width: auto;
 }
 .camera-control-btn {
-    flex: 1;
-    padding: 13px 14px;
-    border-radius: 14px;
+    min-width: 132px;
+    padding: 13px 20px;
+    border-radius: 999px;
     font-weight: 700;
     background: rgba(255,255,255,0.92);
     color: #111;
@@ -556,7 +602,6 @@ input:focus { border-color: #2d8cff; }
     opacity: 0.55;
     cursor: default;
 }
-
 
 .ocr-box {
     position: absolute;
@@ -573,6 +618,11 @@ input:focus { border-color: #2d8cff; }
     z-index: 18;
     display: none;
     pointer-events: none;
+    transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+.ocr-box.emphasis {
+    border-color: #6fb7ff;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.22), 0 0 26px rgba(45,140,255,0.46);
 }
 .ocr-box-label {
     position: absolute;
@@ -591,7 +641,6 @@ input:focus { border-color: #2d8cff; }
 .handle.ne { display:none; }
 .handle.sw { display:none; }
 .handle.se { display:none; }
-
 
 /* 스크린 모드 */
 #screenMode {
@@ -895,41 +944,42 @@ input:focus { border-color: #2d8cff; }
         font-size: 14px;
     }
 
-    .camera-zoom-panel {
-        left: 10px;
-        right: 10px;
-        bottom: 74px;
-        padding: 9px 10px;
+    .camera-size-toggle {
+        left: 12px;
+        bottom: 12px;
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
     }
 
-    .camera-zoom-top {
-        font-size: 12px;
-        margin-bottom: 6px;
+    .camera-size-panel {
+        left: 12px;
+        bottom: 72px;
+        width: min(300px, calc(100vw - 24px));
+        padding: 10px 12px;
+    }
+
+    .camera-zoom-rail {
+        right: 8px;
+        width: 46px;
+        height: 196px;
+    }
+
+    .camera-zoom-slider {
+        width: 34px;
+        height: 160px;
     }
 
     .camera-fs-controls {
-        left: 10px;
-        right: 10px;
+        left: 50%;
+        right: auto;
         bottom: 10px;
         gap: 8px;
     }
 
-    .camera-size-panel {
-        left: 10px;
-        right: 10px;
-        bottom: 150px;
-        padding: 10px 12px;
-    }
-
-    .camera-zoom-panel {
-        left: 10px;
-        right: 10px;
-        bottom: 84px;
-        padding: 10px 12px;
-    }
-
     .camera-control-btn {
-        padding: 12px 8px;
+        min-width: 110px;
+        padding: 12px 16px;
         font-size: 14px;
     }
 
@@ -997,7 +1047,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver19.10</div>
+<div class="version">ver19.11</div>
 <button class="mode-switch" id="modeSwitchBtn" onclick="handleModeSwitch()">📷</button>
 
 <div id="mainPage" class="page">
@@ -1065,32 +1115,32 @@ input:focus { border-color: #2d8cff; }
         <div class="handle ne" data-handle="ne"></div>
         <div class="handle sw" data-handle="sw"></div>
         <div class="handle se" data-handle="se"></div>
-        <div class="camera-scan-overlay" id="cameraScanOverlay"></div>
     </div>
+
+    <div class="camera-full-scan" id="cameraScanOverlay"></div>
+
+    <button class="camera-size-toggle" id="cameraSizeToggleBtn" onclick="toggleCameraSizePanel(event)">±</button>
 
     <div class="camera-size-panel" id="cameraSizePanel">
         <div class="camera-size-row">
             <div class="camera-size-row-top">
                 <span>가로 크기</span>
-                <span class="camera-size-value" id="cameraWidthValue">78vw</span>
+                <span class="camera-size-value" id="cameraWidthValue">78%</span>
             </div>
-            <input type="range" class="camera-size-slider" id="cameraWidthSlider" min="56" max="90" step="1" value="78" />
+            <input type="range" class="camera-size-slider" id="cameraWidthSlider" min="22" max="92" step="1" value="78" />
         </div>
         <div class="camera-size-row">
             <div class="camera-size-row-top">
                 <span>세로 크기</span>
-                <span class="camera-size-value" id="cameraHeightValue">16:9</span>
+                <span class="camera-size-value" id="cameraHeightValue">24%</span>
             </div>
-            <input type="range" class="camera-size-slider" id="cameraHeightSlider" min="38" max="74" step="1" value="56" />
+            <input type="range" class="camera-size-slider" id="cameraHeightSlider" min="8" max="58" step="1" value="24" />
         </div>
     </div>
 
-    <div class="camera-zoom-panel" id="cameraZoomPanel">
-        <div class="camera-zoom-top">
-            <span>줌 조절</span>
-            <span class="camera-zoom-value" id="cameraZoomValue">1.0x</span>
-        </div>
-        <input type="range" class="camera-zoom-slider" id="cameraZoomSlider" min="1" max="1" step="0.1" value="1" />
+    <div class="camera-zoom-rail" id="cameraZoomPanel">
+        <div class="camera-zoom-value-badge" id="cameraZoomValue">1.0x</div>
+        <input type="range" class="camera-zoom-slider" id="cameraZoomSlider" min="1" max="1" step="0.1" value="1" orient="vertical" />
     </div>
 
     <div class="camera-fs-controls" id="cameraControls">
@@ -1295,6 +1345,9 @@ let cameraZoomMin = 1;
 let cameraZoomMax = 1;
 let cameraZoomStep = 0.1;
 let currentCameraZoom = 1;
+let cameraZoomFadeTimer = null;
+let translateLoadingInterval = null;
+let cameraSizePanelAutoHideTimer = null;
 let cameraShotTaken = false;
 let rangeVisible = false;
 let cameraOcrRunning = false;
@@ -1316,6 +1369,7 @@ const cameraGuideText = document.getElementById("cameraGuideText");
 const cameraZoomPanel = document.getElementById("cameraZoomPanel");
 const cameraZoomSlider = document.getElementById("cameraZoomSlider");
 const cameraZoomValue = document.getElementById("cameraZoomValue");
+const cameraSizeToggleBtn = document.getElementById("cameraSizeToggleBtn");
 const cameraSizePanel = document.getElementById("cameraSizePanel");
 const cameraWidthSlider = document.getElementById("cameraWidthSlider");
 const cameraHeightSlider = document.getElementById("cameraHeightSlider");
@@ -1585,14 +1639,15 @@ function romanToKorean(text) {
 function startLoadingMessage() {
     const loadingText = document.getElementById("loadingText");
     const button = document.getElementById("translateBtn");
-    let dots = 1;
+    let dots = 0;
 
     button.disabled = true;
-    loadingText.textContent = "기다려 주세요" + ".".repeat(dots);
+    loadingText.textContent = "번역 중입니다";
 
+    clearInterval(loadingInterval);
     loadingInterval = setInterval(() => {
-        dots = dots >= 3 ? 1 : dots + 1;
-        loadingText.textContent = "기다려 주세요" + ".".repeat(dots);
+        dots = (dots + 1) % 4;
+        loadingText.textContent = "번역 중입니다" + ".".repeat(dots);
     }, 300);
 }
 
@@ -2128,23 +2183,53 @@ function setCameraProgress(text) {
 
 function updateGuideSizeUi() {
     const widthPercent = Math.round(Number(cameraWidthSlider?.value || 78));
-    const heightPercent = Math.round(Number(cameraHeightSlider?.value || 56));
-    if (cameraWidthValue) cameraWidthValue.textContent = `${widthPercent}vw`;
+    const heightPercent = Math.round(Number(cameraHeightSlider?.value || 24));
+    if (cameraWidthValue) cameraWidthValue.textContent = `${widthPercent}%`;
     if (cameraHeightValue) cameraHeightValue.textContent = `${heightPercent}%`;
+}
+
+function emphasizeGuideBox(active = true) {
+    if (!ocrBox) return;
+    ocrBox.classList.toggle("emphasis", !!active);
 }
 
 function resetGuideBox() {
     const widthPercent = Number(cameraWidthSlider?.value || 78) / 100;
-    const heightPercent = Number(cameraHeightSlider?.value || 56) / 100;
-    const boxWidth = Math.max(220, Math.min(window.innerWidth * widthPercent, 620));
-    const boxHeight = Math.max(90, Math.min(window.innerHeight * 0.42, Math.round(boxWidth * heightPercent)));
+    const heightPercent = Number(cameraHeightSlider?.value || 24) / 100;
+    const boxWidth = Math.max(120, Math.min(window.innerWidth * widthPercent, window.innerWidth * 0.92));
+    const boxHeight = Math.max(54, Math.min(window.innerHeight * heightPercent, window.innerHeight * 0.58));
 
-    ocrBox.style.width = boxWidth + "px";
-    ocrBox.style.height = boxHeight + "px";
+    ocrBox.style.width = Math.round(boxWidth) + "px";
+    ocrBox.style.height = Math.round(boxHeight) + "px";
     ocrBox.style.left = "50%";
     ocrBox.style.top = "50%";
     ocrBox.style.transform = "translate(-50%, -50%)";
     updateGuideSizeUi();
+}
+
+function clearCameraSizePanelAutoHide() {
+    if (cameraSizePanelAutoHideTimer) {
+        clearTimeout(cameraSizePanelAutoHideTimer);
+        cameraSizePanelAutoHideTimer = null;
+    }
+}
+
+function scheduleCameraSizePanelAutoHide() {
+    clearCameraSizePanelAutoHide();
+    cameraSizePanelAutoHideTimer = setTimeout(() => {
+        if (cameraSizePanel) cameraSizePanel.classList.remove("active");
+        emphasizeGuideBox(false);
+    }, 1800);
+}
+
+function toggleCameraSizePanel(event) {
+    if (event) event.stopPropagation();
+    if (!cameraSizePanel) return;
+    const isActive = cameraSizePanel.classList.contains("active");
+    cameraSizePanel.classList.toggle("active", !isActive);
+    emphasizeGuideBox(!isActive);
+    if (!isActive) scheduleCameraSizePanelAutoHide();
+    else clearCameraSizePanelAutoHide();
 }
 
 function getGuideRectRelativeToElement(element, sourceWidth, sourceHeight) {
@@ -2175,6 +2260,21 @@ function setCameraZoomUi(value = 1) {
     if (cameraZoomSlider) cameraZoomSlider.value = String(safe);
 }
 
+function setCameraZoomPanelActive(active) {
+    if (!cameraZoomPanel) return;
+    cameraZoomPanel.classList.toggle("active", !!active);
+}
+
+function revealCameraZoomPanel() {
+    clearTimeout(cameraZoomFadeTimer);
+    setCameraZoomPanelActive(true);
+}
+
+function scheduleCameraZoomFade() {
+    clearTimeout(cameraZoomFadeTimer);
+    cameraZoomFadeTimer = setTimeout(() => setCameraZoomPanelActive(false), 100);
+}
+
 function resetCameraZoomState() {
     currentCameraTrack = null;
     cameraSupportsZoom = false;
@@ -2190,7 +2290,7 @@ function resetCameraZoomState() {
         cameraZoomSlider.value = "1";
         cameraZoomSlider.disabled = true;
     }
-    if (cameraZoomPanel) cameraZoomPanel.classList.remove("active");
+    setCameraZoomPanelActive(false);
 }
 
 async function setupCameraZoom(track) {
@@ -2227,7 +2327,7 @@ async function setupCameraZoom(track) {
         cameraZoomSlider.step = String(cameraZoomStep);
         cameraZoomSlider.disabled = false;
     }
-    if (cameraZoomPanel) cameraZoomPanel.classList.add("active");
+    setCameraZoomPanelActive(false);
     setCameraZoomUi(currentValue);
 }
 
@@ -2259,7 +2359,23 @@ function playCameraScanAnimation() {
     return new Promise(resolve => setTimeout(() => {
         cameraScanOverlay.classList.remove("active");
         resolve();
-    }, 400));
+    }, 420));
+}
+
+function startCameraTranslateLoading() {
+    clearInterval(translateLoadingInterval);
+    let dots = 0;
+    cameraTranslatedText.classList.add("placeholder");
+    cameraTranslatedText.textContent = "번역 중입니다";
+    translateLoadingInterval = setInterval(() => {
+        dots = (dots + 1) % 4;
+        cameraTranslatedText.textContent = "번역 중입니다" + ".".repeat(dots);
+    }, 300);
+}
+
+function stopCameraTranslateLoading() {
+    clearInterval(translateLoadingInterval);
+    translateLoadingInterval = null;
 }
 
 function resetCameraUi() {
@@ -2280,8 +2396,11 @@ function resetCameraUi() {
     ocrBox.style.display = "none";
     ocrBox.style.pointerEvents = "none";
     cameraGuideText.style.display = "none";
-    if (cameraZoomPanel) cameraZoomPanel.classList.remove("active");
+    setCameraZoomPanelActive(false);
     if (cameraSizePanel) cameraSizePanel.classList.remove("active");
+    clearCameraSizePanelAutoHide();
+    emphasizeGuideBox(false);
+    stopCameraTranslateLoading();
     resetCameraZoomState();
     updateGuideSizeUi();
 
@@ -2331,7 +2450,8 @@ async function openFullscreenCamera() {
         ocrBox.style.display = "block";
         ocrBox.style.pointerEvents = "none";
         cameraGuideText.style.display = "block";
-        if (cameraSizePanel) cameraSizePanel.classList.add("active");
+        if (cameraSizePanel) cameraSizePanel.classList.remove("active");
+        emphasizeGuideBox(false);
         resetGuideBox();
 
         captureBtn.disabled = false;
@@ -2383,6 +2503,7 @@ async function captureAndRecognize() {
     }
     setCameraProgress("스캔 준비중");
     await playCameraScanAnimation();
+    await sleep(400);
     await startRecognitionFlow();
 }
 
@@ -2420,8 +2541,10 @@ function captureShot() {
     cameraShotTaken = true;
     rangeVisible = true;
     cameraGuideText.style.display = "none";
-    if (cameraZoomPanel) cameraZoomPanel.classList.remove("active");
+    setCameraZoomPanelActive(false);
     if (cameraSizePanel) cameraSizePanel.classList.remove("active");
+    clearCameraSizePanelAutoHide();
+    emphasizeGuideBox(false);
     resetCameraZoomState();
 
     setCameraProgress("촬영 완료. 인식을 시작합니다.");
@@ -2992,7 +3115,8 @@ ${attempt.detail}
         const winner = chooseBestVotedCandidate(successfulResults);
 
         if (!winner || !winner.cleaned) {
-            setCameraProgress("전체 OCR 실패");
+            stopCameraTranslateLoading();
+        setCameraProgress("전체 OCR 실패");
             setCameraText(
                 "전체 OCR 실패",
                 "가이드 안에 더 크게 맞추고 다시 시도해 주세요.",
@@ -3008,8 +3132,7 @@ ${attempt.detail}
         cameraRecognizedText.textContent = finalText;
         cameraRecognizedText.classList.remove("placeholder");
 
-        cameraTranslatedText.textContent = "번역중";
-        cameraTranslatedText.classList.add("placeholder");
+        startCameraTranslateLoading();
 
         setCameraProgress(
             `최종 선택 완료
@@ -3020,6 +3143,7 @@ ${winner.detail}
         const translatedKo = await translateMnToKo(finalText);
         if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
 
+        stopCameraTranslateLoading();
         if (!translatedKo) {
             setCameraProgress(
                 `최종 선택 완료
@@ -3050,9 +3174,11 @@ ${winner.detail}
         showToast("인식 실패");
     } finally {
         if (runId === currentRecognitionRunId && localAbortToken === cameraAbortToken) {
+            stopCameraTranslateLoading();
             cameraOcrRunning = false;
             captureBtn.disabled = false;
-                                    ocrBox.style.pointerEvents = "none";
+            captureBtn.textContent = "촬영";
+            ocrBox.style.pointerEvents = "none";
         }
     }
 }
@@ -3066,8 +3192,9 @@ function abortCameraRecognition(reopenCamera = false) {
     setCameraProgress("작업을 중단했습니다.");
     setCameraText("작업을 중단했습니다.", "다시 시도해 주세요.", true, true);
 
+    stopCameraTranslateLoading();
     captureBtn.disabled = false;
-    captureBtn.textContent = cameraShotTaken ? "다시 찍기" : "촬영";
+    captureBtn.textContent = "촬영";
 
     if (reopenCamera) {
         openFullscreenCamera();
@@ -3132,6 +3259,47 @@ window.addEventListener("resize", () => {
     }
 });
 
+
+if (cameraWidthSlider) {
+    cameraWidthSlider.addEventListener("input", () => {
+        resetGuideBox();
+        emphasizeGuideBox(true);
+        scheduleCameraSizePanelAutoHide();
+    });
+}
+if (cameraHeightSlider) {
+    cameraHeightSlider.addEventListener("input", () => {
+        resetGuideBox();
+        emphasizeGuideBox(true);
+        scheduleCameraSizePanelAutoHide();
+    });
+}
+if (cameraZoomSlider) {
+    const onZoomStart = () => revealCameraZoomPanel();
+    const onZoomEnd = () => scheduleCameraZoomFade();
+    cameraZoomSlider.addEventListener("input", (e) => {
+        revealCameraZoomPanel();
+        applyCameraZoom(e.target.value);
+    });
+    cameraZoomSlider.addEventListener("pointerdown", onZoomStart);
+    cameraZoomSlider.addEventListener("pointerup", onZoomEnd);
+    cameraZoomSlider.addEventListener("touchstart", onZoomStart, { passive: true });
+    cameraZoomSlider.addEventListener("touchend", onZoomEnd, { passive: true });
+    cameraZoomSlider.addEventListener("change", onZoomEnd);
+}
+
+document.getElementById("cameraFullscreen").addEventListener("click", (e) => {
+    const clickedInsideSizePanel = cameraSizePanel && cameraSizePanel.contains(e.target);
+    const clickedSizeToggle = cameraSizeToggleBtn && cameraSizeToggleBtn.contains(e.target);
+    const clickedCapture = captureBtn && captureBtn.contains(e.target);
+    const clickedExit = document.getElementById("cameraExitBtn").contains(e.target);
+    const clickedZoom = cameraZoomPanel && cameraZoomPanel.contains(e.target);
+    if (!clickedInsideSizePanel && !clickedSizeToggle && !clickedCapture && !clickedExit && !clickedZoom) {
+        if (cameraSizePanel) cameraSizePanel.classList.remove("active");
+        emphasizeGuideBox(false);
+        clearCameraSizePanelAutoHide();
+    }
+});
 
 if ("speechSynthesis" in window) {
     refreshVoices();
