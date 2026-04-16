@@ -804,7 +804,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver18.3</div>
+<div class="version">ver18.4</div>
 <button class="mode-switch" id="modeSwitchBtn" onclick="handleModeSwitch()">📷</button>
 
 <div id="mainPage" class="page">
@@ -1200,13 +1200,12 @@ let isCameraMode = false;
 let currentStream = null;
 let cameraShotTaken = false;
 let rangeVisible = false;
-let cameraWorker = null;
 let cameraOcrRunning = false;
 let cameraAbortToken = 0;
-let progressInterval = null;
-let progressBaseText = "";
-let progressDots = 1;
-let currentAttemptName = "";
+let currentRecognitionRunId = 0;
+
+const OCR_ATTEMPT_TIMEOUT_MS = 7000;
+const OCR_TOTAL_ROUNDS = 2;
 
 const cameraVideo = document.getElementById("cameraVideo");
 const cameraSnapshot = document.getElementById("cameraSnapshot");
@@ -1535,50 +1534,19 @@ function setCameraText(recognized, translated, recognizedPlaceholder = false, tr
     cameraTranslatedText.classList.toggle("placeholder", translatedPlaceholder);
 }
 
-function stopProgressDots(finalText = "") {
-    if (progressInterval) {
-        clearInterval(progressInterval);
-        progressInterval = null;
-    }
-    if (finalText !== "") cameraProgress.textContent = finalText;
-}
-
-function startProgressDots(baseText, target = "recognized") {
-    stopProgressDots();
-    progressBaseText = baseText;
-    progressDots = 1;
-
-    const paint = () => {
-        const text = progressBaseText + ".".repeat(progressDots);
-        const extra = currentAttemptName ? `\n${currentAttemptName}` : "";
-        cameraProgress.textContent = text + extra;
-
-        if (target === "recognized") {
-            cameraRecognizedText.textContent = text;
-            cameraRecognizedText.classList.add("placeholder");
-        } else if (target === "translated") {
-            cameraTranslatedText.textContent = text;
-            cameraTranslatedText.classList.add("placeholder");
-        }
-    };
-
-    paint();
-
-    progressInterval = setInterval(() => {
-        progressDots = progressDots >= 3 ? 1 : progressDots + 1;
-        paint();
-    }, 300);
+function setCameraProgress(text) {
+    cameraProgress.textContent = text;
 }
 
 function resetCameraUi() {
     stopCameraStream();
     hideFullscreenCamera();
+
     cameraShotTaken = false;
     rangeVisible = false;
     cameraOcrRunning = false;
     cameraAbortToken++;
-    currentAttemptName = "";
-    stopProgressDots();
+    currentRecognitionRunId++;
 
     cameraVideo.style.display = "none";
     cameraSnapshot.style.display = "none";
@@ -1594,7 +1562,7 @@ function resetCameraUi() {
     rangeBtn.textContent = "범위 선택";
     recognizeBtn.disabled = true;
 
-    cameraProgress.textContent = "";
+    setCameraProgress("");
     setCameraText("인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
 }
 
@@ -1617,6 +1585,7 @@ async function openFullscreenCamera() {
         cameraShotTaken = false;
         rangeVisible = false;
         cameraAbortToken++;
+        currentRecognitionRunId++;
 
         const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: { ideal: "environment" } },
@@ -1639,7 +1608,7 @@ async function openFullscreenCamera() {
         recognizeBtn.disabled = true;
 
         showFullscreenCamera();
-        cameraProgress.textContent = "장면이 보이면 촬영 버튼을 누르세요.";
+        setCameraProgress("장면이 보이면 촬영 버튼을 누르세요.");
     } catch (error) {
         console.error(error);
         cameraPlaceholder.style.display = "flex";
@@ -1689,7 +1658,7 @@ function captureShot() {
     recognizeBtn.disabled = true;
     rangeBtn.textContent = "범위 선택";
 
-    cameraProgress.textContent = "촬영되었습니다. '범위 선택'을 눌러 범위를 지정하세요.";
+    setCameraProgress("촬영되었습니다. '범위 선택'을 눌러 범위를 지정하세요.");
 }
 
 function toggleRangeBox() {
@@ -1701,10 +1670,10 @@ function toggleRangeBox() {
         rangeVisible = true;
         recognizeBtn.disabled = false;
         rangeBtn.textContent = "범위 다시 지정";
-        cameraProgress.textContent = "상자의 위치와 크기를 조절한 뒤 '인식'을 누르세요.";
+        setCameraProgress("상자의 위치와 크기를 조절한 뒤 '인식'을 누르세요.");
     } else {
         resetRangeBox();
-        cameraProgress.textContent = "범위를 초기 상태로 되돌렸습니다.";
+        setCameraProgress("범위를 초기 상태로 되돌렸습니다.");
     }
 }
 
@@ -1738,14 +1707,6 @@ function getBoxRectRelativeToImage() {
     sh = Math.max(1, Math.min(sh, cameraSnapshot.naturalHeight - sy));
 
     return { sx, sy, sw, sh };
-}
-
-async function ensureCameraWorker() {
-    if (cameraWorker) return cameraWorker;
-    cameraWorker = await Tesseract.createWorker("mon", 1, {
-        logger: () => {}
-    });
-    return cameraWorker;
 }
 
 function sleep(ms) {
@@ -1964,52 +1925,52 @@ function buildAttemptCanvases() {
     const attempts = [];
 
     attempts.push({
-        name: "1/10 기본 축소",
+        name: "1번째 전처리중",
         canvas: cloneCanvas(cropped)
     });
 
     attempts.push({
-        name: "2/10 흑백",
+        name: "2번째 전처리중",
         canvas: applyGrayscale(cloneCanvas(cropped))
     });
 
     attempts.push({
-        name: "3/10 흑백 + 대비강화",
+        name: "3번째 전처리중",
         canvas: applyContrast(applyGrayscale(cloneCanvas(cropped)), 1.8)
     });
 
     attempts.push({
-        name: "4/10 흑백 + 임계값 145",
+        name: "4번째 전처리중",
         canvas: applyThreshold(applyGrayscale(cloneCanvas(cropped)), 145)
     });
 
     attempts.push({
-        name: "5/10 흑백 + 강한 임계값 120",
+        name: "5번째 전처리중",
         canvas: applyThreshold(applyGrayscale(cloneCanvas(cropped)), 120)
     });
 
     attempts.push({
-        name: "6/10 흑백 + 적응형 임계값",
+        name: "6번째 전처리중",
         canvas: applyAdaptiveLike(applyGrayscale(cloneCanvas(cropped)))
     });
 
     attempts.push({
-        name: "7/10 1.6배 확대 + 흑백",
+        name: "7번째 전처리중",
         canvas: applyGrayscale(upscaleCanvas(cloneCanvas(cropped), 1.6))
     });
 
     attempts.push({
-        name: "8/10 1.6배 확대 + 흑백 + 대비",
+        name: "8번째 전처리중",
         canvas: applyContrast(applyGrayscale(upscaleCanvas(cloneCanvas(cropped), 1.6)), 1.8)
     });
 
     attempts.push({
-        name: "9/10 흑백 + 샤픈 + 임계값",
+        name: "9번째 전처리중",
         canvas: applyThreshold(applySharpen(applyGrayscale(cloneCanvas(cropped))), 138)
     });
 
     attempts.push({
-        name: "10/10 반전 대비용",
+        name: "10번째 전처리중",
         canvas: applyThreshold(applyInvert(applyGrayscale(cloneCanvas(cropped))), 138)
     });
 
@@ -2019,15 +1980,22 @@ function buildAttemptCanvases() {
     }));
 }
 
-async function ensureCameraWorker() {
-    if (cameraWorker) return cameraWorker;
-    cameraWorker = await Tesseract.createWorker("mon", 1, {
+async function createFreshCameraWorker() {
+    return await Tesseract.createWorker("mon", 1, {
         logger: () => {}
     });
-    return cameraWorker;
 }
 
-async function recognizeWithTimeout(worker, canvas, timeoutMs = 8000) {
+async function safeTerminateWorker(worker) {
+    if (!worker) return;
+    try {
+        await worker.terminate();
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function recognizeWithTimeout(worker, canvas, timeoutMs = OCR_ATTEMPT_TIMEOUT_MS) {
     return Promise.race([
         worker.recognize(canvas),
         new Promise((_, reject) => setTimeout(() => reject(new Error("OCR_TIMEOUT")), timeoutMs))
@@ -2058,52 +2026,66 @@ async function translateMnToKo(text) {
     }
 }
 
-async function startRecognitionFlow() {
-    if (!cameraShotTaken || !rangeVisible || cameraOcrRunning) return;
+function isWorkerFatalError(error) {
+    const msg = String(error?.message || error || "");
+    return (
+        msg.includes("OCR_TIMEOUT") ||
+        msg.includes("worker") ||
+        msg.includes("Worker") ||
+        msg.includes("load") ||
+        msg.includes("Load") ||
+        msg.includes("initialize") ||
+        msg.includes("init") ||
+        msg.includes("terminated") ||
+        msg.includes("abort") ||
+        msg.includes("network")
+    );
+}
 
-    cameraOcrRunning = true;
-    const token = ++cameraAbortToken;
+function updateAttemptProgress(text) {
+    setCameraProgress(text);
+    cameraRecognizedText.textContent = text;
+    cameraRecognizedText.classList.add("placeholder");
+}
 
-    captureBtn.disabled = true;
-    rangeBtn.disabled = true;
-    recognizeBtn.disabled = true;
-    ocrBox.style.pointerEvents = "none";
-
-    hideFullscreenCamera();
-    setCameraText("OCR 인식 중...", "번역 대기 중...", true, true);
+async function runFullAttemptRound(attempts, runId) {
+    let worker = null;
+    let bestText = "";
+    let bestScore = -9999;
+    let bestAttemptIndex = -1;
+    let bestAttemptName = "";
+    let fatalWorkerError = null;
 
     try {
-        const worker = await ensureCameraWorker();
-        if (token !== cameraAbortToken) return;
-
-        const attempts = buildAttemptCanvases();
-
-        let bestText = "";
-        let bestScore = -9999;
-        let bestAttempt = "";
-        let failReason = "";
+        worker = await createFreshCameraWorker();
+        if (runId !== currentRecognitionRunId) {
+            return { aborted: true };
+        }
 
         for (let i = 0; i < attempts.length; i++) {
-            if (token !== cameraAbortToken) return;
+            if (runId !== currentRecognitionRunId) {
+                return { aborted: true };
+            }
 
             const attempt = attempts[i];
-            currentAttemptName = attempt.name;
-            startProgressDots("OCR 인식 중", "recognized");
+            updateAttemptProgress(attempt.name);
 
             let raw = "";
             try {
-                const { data } = await recognizeWithTimeout(worker, attempt.canvas, 7000);
-                raw = (data.text || "").trim();
+                const result = await recognizeWithTimeout(worker, attempt.canvas, OCR_ATTEMPT_TIMEOUT_MS);
+                raw = (result?.data?.text || "").trim();
             } catch (error) {
-                failReason = error?.message || String(error);
-                continue;
+                if (isWorkerFatalError(error)) {
+                    fatalWorkerError = error;
+                    break;
+                } else {
+                    continue;
+                }
             }
 
-            if (token !== cameraAbortToken) return;
-
-            startProgressDots("텍스트 후처리 중", "recognized");
-            await sleep(180);
-            if (token !== cameraAbortToken) return;
+            if (runId !== currentRecognitionRunId) {
+                return { aborted: true };
+            }
 
             const cleaned = cleanupOcrText(raw);
             const score = scoreCandidate(cleaned);
@@ -2111,89 +2093,182 @@ async function startRecognitionFlow() {
             if (score > bestScore) {
                 bestScore = score;
                 bestText = cleaned;
-                bestAttempt = attempt.name;
+                bestAttemptIndex = i;
+                bestAttemptName = attempt.name;
             }
 
             if (score >= 14) {
                 break;
             }
+
+            await sleep(80);
         }
 
-        currentAttemptName = bestAttempt ? `채택: ${bestAttempt}` : "";
-        stopProgressDots();
+        if (fatalWorkerError) {
+            return {
+                ok: false,
+                workerFatal: true,
+                error: fatalWorkerError
+            };
+        }
 
-        if (token !== cameraAbortToken) return;
+        return {
+            ok: true,
+            bestText,
+            bestScore,
+            bestAttemptIndex,
+            bestAttemptName
+        };
+    } finally {
+        await safeTerminateWorker(worker);
+    }
+}
 
-        if (!bestText) {
-            const msg = failReason === "OCR_TIMEOUT"
-                ? "인식 시간이 너무 오래 걸렸습니다."
+async function startRecognitionFlow() {
+    if (!cameraShotTaken || !rangeVisible || cameraOcrRunning) return;
+
+    cameraOcrRunning = true;
+    cameraAbortToken++;
+    const localAbortToken = cameraAbortToken;
+    const runId = ++currentRecognitionRunId;
+
+    captureBtn.disabled = true;
+    rangeBtn.disabled = true;
+    recognizeBtn.disabled = true;
+    ocrBox.style.pointerEvents = "none";
+
+    hideFullscreenCamera();
+    setCameraText("1번째 전처리중", "번역 대기 중", true, true);
+
+    try {
+        const attempts = buildAttemptCanvases();
+
+        let bestTextOverall = "";
+        let bestScoreOverall = -9999;
+        let bestAttemptNameOverall = "";
+        let lastWorkerError = null;
+        let hadWorkerRestart = false;
+
+        for (let round = 1; round <= OCR_TOTAL_ROUNDS; round++) {
+            if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
+
+            if (round > 1) {
+                hadWorkerRestart = true;
+                setCameraProgress("ocrworker 고장으로 처음부터 다시 시작합니다");
+                cameraRecognizedText.textContent = "1번째 전처리중";
+                cameraRecognizedText.classList.add("placeholder");
+                await sleep(300);
+            }
+
+            const result = await runFullAttemptRound(attempts, runId);
+            if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
+            if (result?.aborted) return;
+
+            if (result.ok) {
+                if (result.bestScore > bestScoreOverall) {
+                    bestScoreOverall = result.bestScore;
+                    bestTextOverall = result.bestText;
+                    bestAttemptNameOverall = result.bestAttemptName;
+                }
+
+                if (bestTextOverall) {
+                    break;
+                }
+
+                if (!bestTextOverall && round < OCR_TOTAL_ROUNDS) {
+                    setCameraProgress("결과가 약해서 처음부터 다시 시도합니다");
+                    await sleep(250);
+                }
+            } else if (result.workerFatal) {
+                lastWorkerError = result.error;
+                if (round < OCR_TOTAL_ROUNDS) {
+                    continue;
+                }
+            }
+        }
+
+        if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
+
+        if (!bestTextOverall) {
+            const reasonText = lastWorkerError
+                ? "ocrworker 오류로 인해 인식에 실패했습니다."
                 : "인식 가능한 결과를 찾지 못했습니다.";
 
-            cameraProgress.textContent = `${msg}\n10가지 전처리를 시도했지만 적절한 텍스트를 얻지 못했습니다.`;
-            setCameraText("인식에 실패했습니다.", "범위를 다시 줄이거나 글자가 더 선명한 사진을 시도해 주세요.", true, true);
+            setCameraProgress(
+                `${reasonText}\n처음 전처리부터 다시 시도했지만 적절한 텍스트를 얻지 못했습니다.`
+            );
+            setCameraText(
+                "인식에 실패했습니다.",
+                "범위를 더 좁히거나 글자가 더 선명한 사진으로 다시 시도해 주세요.",
+                true,
+                true
+            );
             showToast("인식 실패");
             return;
         }
 
-        cameraRecognizedText.textContent = bestText;
+        cameraRecognizedText.textContent = bestTextOverall;
         cameraRecognizedText.classList.remove("placeholder");
 
-        currentAttemptName = bestAttempt ? `${bestAttempt} 사용` : "";
-        startProgressDots("번역 요청 중", "translated");
-        await sleep(180);
-        if (token !== cameraAbortToken) return;
+        setCameraProgress(
+            hadWorkerRestart
+                ? `인식 완료\nworker 재시작 후 선택된 결과: ${bestAttemptNameOverall || "최적 결과"}`
+                : `인식 완료\n선택된 결과: ${bestAttemptNameOverall || "최적 결과"}`
+        );
 
-        startProgressDots("번역 중", "translated");
-        const translatedKo = await translateMnToKo(bestText);
-        if (token !== cameraAbortToken) return;
+        cameraTranslatedText.textContent = "번역중";
+        cameraTranslatedText.classList.add("placeholder");
 
-        stopProgressDots(bestAttempt ? `완료되었습니다.\n선택된 방식: ${bestAttempt}` : "완료되었습니다.");
+        const translatedKo = await translateMnToKo(bestTextOverall);
+        if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
 
         if (!translatedKo) {
-            setCameraText(bestText, "번역에 실패했습니다.", false, true);
+            cameraTranslatedText.textContent = "번역에 실패했습니다.";
+            cameraTranslatedText.classList.add("placeholder");
             showToast("번역 실패");
             return;
         }
 
-        setCameraText(bestText, translatedKo, false, false);
+        cameraTranslatedText.textContent = translatedKo;
+        cameraTranslatedText.classList.remove("placeholder");
         showToast("인식 완료");
     } catch (error) {
         console.error(error);
-        if (token !== cameraAbortToken) return;
+        if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
 
-        stopProgressDots("인식에 실패했습니다.");
+        setCameraProgress("인식에 실패했습니다.");
         setCameraText(
             "인식에 실패했습니다.",
-            "초기화 오류 또는 언어 로드 오류일 수 있습니다. 다른 시도나 정식형 구조가 더 적합할 수 있습니다.",
+            "초기화 오류가 발생했습니다. 다시 찍거나 범위를 다시 지정해 주세요.",
             true,
             true
         );
         showToast("인식 실패");
     } finally {
-        if (token === cameraAbortToken) {
+        if (runId === currentRecognitionRunId && localAbortToken === cameraAbortToken) {
             cameraOcrRunning = false;
             captureBtn.disabled = false;
             rangeBtn.disabled = false;
             recognizeBtn.disabled = false;
             ocrBox.style.pointerEvents = "";
-            currentAttemptName = "";
         }
     }
 }
 
 function abortCameraRecognition(reopenCamera = false) {
     cameraAbortToken++;
+    currentRecognitionRunId++;
     cameraOcrRunning = false;
-    stopProgressDots("작업을 중단했습니다.");
     ocrBox.style.pointerEvents = "";
 
+    setCameraProgress("작업을 중단했습니다.");
     setCameraText("작업을 중단했습니다.", "다시 시도해 주세요.", true, true);
 
+    captureBtn.disabled = false;
+    rangeBtn.disabled = !cameraShotTaken;
+    recognizeBtn.disabled = !rangeVisible;
+
     if (reopenCamera) {
-        if (cameraWorker) {
-            cameraWorker.terminate().catch(() => {});
-            cameraWorker = null;
-        }
         openFullscreenCamera();
     }
 }
