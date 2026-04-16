@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>🇲🇳 신나는 몽골어 번역기</title>
+<title>🇲🇳 신나는 몽골어 번역기 ver19.6</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 * { box-sizing: border-box; }
@@ -151,9 +151,32 @@ input:focus { border-color: #2d8cff; }
     font-weight: 700;
 }
 .result-main {
-    font-size: 22px;
-    font-weight: 700;
     word-break: break-word;
+}
+.result-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.result-line {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.7;
+    word-break: break-word;
+}
+.result-line-label {
+    flex: 0 0 86px;
+    color: #4b5563;
+    font-size: 14px;
+    font-weight: 700;
+    padding-top: 2px;
+}
+.result-line-value {
+    flex: 1;
+    min-width: 0;
 }
 .result-english {
     margin-top: 10px;
@@ -674,9 +697,19 @@ input:focus { border-color: #2d8cff; }
         border-radius: 14px;
     }
 
-    .result-main {
-        font-size: 24px;
-        line-height: 1.8;
+    .result-line {
+        font-size: 16px;
+        line-height: 1.65;
+        gap: 6px;
+    }
+
+    .result-line-label {
+        flex-basis: 72px;
+        font-size: 12px;
+    }
+
+    .result-line-value {
+        font-size: 16px;
     }
 
     .result-english {
@@ -845,7 +878,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver19.5</div>
+<div class="version">ver19.6</div>
 <button class="mode-switch" id="modeSwitchBtn" onclick="handleModeSwitch()">📷</button>
 
 <div id="mainPage" class="page">
@@ -1249,8 +1282,91 @@ function toRoman(text) {
         .replace(/ф/g, "f");
 }
 
+function getKoreanInitialIndex(consonant) {
+    const map = {
+        "ㄱ": 0, "ㄲ": 1, "ㄴ": 2, "ㄷ": 3, "ㄸ": 4, "ㄹ": 5, "ㅁ": 6, "ㅂ": 7, "ㅃ": 8,
+        "ㅅ": 9, "ㅆ": 10, "ㅇ": 11, "ㅈ": 12, "ㅉ": 13, "ㅊ": 14, "ㅋ": 15, "ㅌ": 16, "ㅍ": 17, "ㅎ": 18
+    };
+    return map[consonant];
+}
+
+function getKoreanFinalIndex(consonant) {
+    const map = {
+        "ㄱ": 1, "ㄲ": 2, "ㄳ": 3, "ㄴ": 4, "ㄵ": 5, "ㄶ": 6, "ㄷ": 7, "ㄹ": 8, "ㄺ": 9, "ㄻ": 10, "ㄼ": 11,
+        "ㄽ": 12, "ㄾ": 13, "ㄿ": 14, "ㅀ": 15, "ㅁ": 16, "ㅂ": 17, "ㅄ": 18, "ㅅ": 19, "ㅆ": 20, "ㅇ": 21,
+        "ㅈ": 22, "ㅊ": 23, "ㅋ": 24, "ㅌ": 25, "ㅍ": 26, "ㅎ": 27
+    };
+    return map[consonant];
+}
+
+function isKoreanConsonantChar(ch) {
+    return /[ㄱ-ㅎ]/.test(ch || "");
+}
+
+function isHangulSyllableChar(ch) {
+    return /[가-힣]/.test(ch || "");
+}
+
+function decomposeHangulSyllable(ch) {
+    if (!isHangulSyllableChar(ch)) return null;
+    const code = ch.charCodeAt(0) - 0xAC00;
+    const initial = Math.floor(code / 588);
+    const medial = Math.floor((code % 588) / 28);
+    const final = code % 28;
+    return { initial, medial, final };
+}
+
+function composeHangulSyllable(initial, medial, final = 0) {
+    return String.fromCharCode(0xAC00 + (initial * 588) + (medial * 28) + final);
+}
+
+function mergeKoreanPronunciationToken(token) {
+    const chars = Array.from(token || "");
+    const out = [];
+
+    for (let i = 0; i < chars.length; i++) {
+        const current = chars[i];
+        const next = chars[i + 1];
+        const prev = out.length ? out[out.length - 1] : "";
+
+        if (isKoreanConsonantChar(current) && isHangulSyllableChar(next)) {
+            const nextInfo = decomposeHangulSyllable(next);
+            const initialIndex = getKoreanInitialIndex(current);
+
+            if (nextInfo && nextInfo.initial === 11 && initialIndex !== undefined) {
+                out.push(composeHangulSyllable(initialIndex, nextInfo.medial, nextInfo.final));
+                i++;
+                continue;
+            }
+        }
+
+        if (isKoreanConsonantChar(current) && isHangulSyllableChar(prev)) {
+            const prevInfo = decomposeHangulSyllable(prev);
+            const finalIndex = getKoreanFinalIndex(current);
+
+            if (prevInfo && prevInfo.final === 0 && finalIndex !== undefined && (!next || !isHangulSyllableChar(next))) {
+                out[out.length - 1] = composeHangulSyllable(prevInfo.initial, prevInfo.medial, finalIndex);
+                continue;
+            }
+        }
+
+        out.push(current);
+    }
+
+    return out.join("");
+}
+
+function mergeKoreanPronunciation(text) {
+    return String(text || "")
+        .split(/(\s+)/)
+        .map(part => /\s+/.test(part) ? part : mergeKoreanPronunciationToken(part))
+        .join("")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
 function romanToKorean(text) {
-    return text
+    const raw = String(text || "")
         .replace(/sh/g, "쉬")
         .replace(/ch/g, "치")
         .replace(/kh/g, "흐")
@@ -1258,6 +1374,10 @@ function romanToKorean(text) {
         .replace(/yo/g, "요")
         .replace(/yu/g, "유")
         .replace(/ya/g, "야")
+        .replace(/ai/g, "아이")
+        .replace(/ei/g, "에이")
+        .replace(/oi/g, "오이")
+        .replace(/ui/g, "우이")
         .replace(/ö/g, "어")
         .replace(/ü/g, "우")
         .replace(/y/g, "으")
@@ -1281,6 +1401,8 @@ function romanToKorean(text) {
         .replace(/s/g, "ㅅ")
         .replace(/t/g, "ㅌ")
         .replace(/f/g, "ㅍ");
+
+    return mergeKoreanPronunciation(raw);
 }
 
 function startLoadingMessage() {
@@ -1338,7 +1460,13 @@ async function run() {
         document.getElementById("result").innerHTML = `
             <div class="result-card">
                 <div class="highlighted-input">${glossaryMatches.length ? highlightMatchedOrigins(input, glossaryMatches) : input}</div>
-                <div class="result-main">${mn} / ${roman} / ${kor}</div>
+                <div class="result-main">
+                    <div class="result-lines">
+                        <div class="result-line"><span class="result-line-label">몽골어</span><span class="result-line-value">${mn}</span></div>
+                        <div class="result-line"><span class="result-line-label">로마발음</span><span class="result-line-value">${roman}</span></div>
+                        <div class="result-line"><span class="result-line-label">한국발음</span><span class="result-line-value">${kor}</span></div>
+                    </div>
+                </div>
                 <div class="result-english">ENGLISH: ${en}</div>
                 ${buildGlossaryHtml(glossaryMatches)}
             </div>
