@@ -804,7 +804,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver18.4</div>
+<div class="version">ver18.5</div>
 <button class="mode-switch" id="modeSwitchBtn" onclick="handleModeSwitch()">📷</button>
 
 <div id="mainPage" class="page">
@@ -1205,7 +1205,6 @@ let cameraAbortToken = 0;
 let currentRecognitionRunId = 0;
 
 const OCR_ATTEMPT_TIMEOUT_MS = 7000;
-const OCR_TOTAL_ROUNDS = 2;
 
 const cameraVideo = document.getElementById("cameraVideo");
 const cameraSnapshot = document.getElementById("cameraSnapshot");
@@ -1946,32 +1945,12 @@ function buildAttemptCanvases() {
 
     attempts.push({
         name: "5번째 전처리중",
-        canvas: applyThreshold(applyGrayscale(cloneCanvas(cropped)), 120)
+        canvas: applyThreshold(applyGrayscale(upscaleCanvas(cloneCanvas(cropped), 1.6)), 138)
     });
 
     attempts.push({
         name: "6번째 전처리중",
-        canvas: applyAdaptiveLike(applyGrayscale(cloneCanvas(cropped)))
-    });
-
-    attempts.push({
-        name: "7번째 전처리중",
-        canvas: applyGrayscale(upscaleCanvas(cloneCanvas(cropped), 1.6))
-    });
-
-    attempts.push({
-        name: "8번째 전처리중",
-        canvas: applyContrast(applyGrayscale(upscaleCanvas(cloneCanvas(cropped), 1.6)), 1.8)
-    });
-
-    attempts.push({
-        name: "9번째 전처리중",
-        canvas: applyThreshold(applySharpen(applyGrayscale(cloneCanvas(cropped))), 138)
-    });
-
-    attempts.push({
-        name: "10번째 전처리중",
-        canvas: applyThreshold(applyInvert(applyGrayscale(cloneCanvas(cropped))), 138)
+        canvas: applyAdaptiveLike(applySharpen(applyGrayscale(cloneCanvas(cropped))))
     });
 
     return attempts.map(item => ({
@@ -2026,98 +2005,114 @@ async function translateMnToKo(text) {
     }
 }
 
-function isWorkerFatalError(error) {
-    const msg = String(error?.message || error || "");
-    return (
-        msg.includes("OCR_TIMEOUT") ||
-        msg.includes("worker") ||
-        msg.includes("Worker") ||
-        msg.includes("load") ||
-        msg.includes("Load") ||
-        msg.includes("initialize") ||
-        msg.includes("init") ||
-        msg.includes("terminated") ||
-        msg.includes("abort") ||
-        msg.includes("network")
-    );
-}
-
 function updateAttemptProgress(text) {
     setCameraProgress(text);
     cameraRecognizedText.textContent = text;
     cameraRecognizedText.classList.add("placeholder");
 }
 
-async function runFullAttemptRound(attempts, runId) {
-    let worker = null;
-    let bestText = "";
-    let bestScore = -9999;
-    let bestAttemptIndex = -1;
-    let bestAttemptName = "";
-    let fatalWorkerError = null;
+function normalizeOcrVote(text) {
+    return cleanupOcrText(text || "")
+        .toLowerCase()
+        .replace(/[.,!?;:'"`~^*_+=|\\/()[\]{}<>]/g, "")
+        .replace(/[\u2018\u2019\u201C\u201D]/g, "")
+        .replace(/0/g, "о")
+        .replace(/5/g, "s")
+        .replace(/1/g, "l")
+        .replace(/\s+/g, " ")
+        .trim();
+}
 
+function isMeaningfulOcrText(text) {
+    const cleaned = cleanupOcrText(text || "");
+    if (!cleaned) return false;
+    if (cleaned.length < 2) return false;
+
+    const compact = cleaned.replace(/\s/g, "");
+    if (compact.length < 2) return false;
+
+    const usefulChars = compact.match(/[\u0400-\u04FFA-Za-z0-9]/g) || [];
+    return usefulChars.length >= 2;
+}
+
+function pickBestRepresentativeSample(samples) {
+    const unique = [...new Set(samples)];
+    unique.sort((a, b) => {
+        const scoreDiff = scoreCandidate(b) - scoreCandidate(a);
+        if (scoreDiff !== 0) return scoreDiff;
+        if (b.length !== a.length) return b.length - a.length;
+        return a.localeCompare(b);
+    });
+    return unique[0] || "";
+}
+
+function pickBestVotedCandidate(results) {
+    const validResults = results.filter(item => isMeaningfulOcrText(item.cleaned));
+    if (!validResults.length) return null;
+
+    const voteMap = new Map();
+
+    for (const item of validResults) {
+        const key = item.normalized || item.cleaned;
+        if (!voteMap.has(key)) {
+            voteMap.set(key, {
+                normalized: key,
+                voteCount: 0,
+                attempts: [],
+                samples: []
+            });
+        }
+        const group = voteMap.get(key);
+        group.voteCount += 1;
+        group.attempts.push(item.attemptIndex);
+        group.samples.push(item.cleaned);
+    }
+
+    const groups = [...voteMap.values()].map(group => ({
+        normalized: group.normalized,
+        voteCount: group.voteCount,
+        attempts: group.attempts.slice(),
+        cleaned: pickBestRepresentativeSample(group.samples),
+        score: scoreCandidate(pickBestRepresentativeSample(group.samples))
+    }));
+
+    groups.sort((a, b) => {
+        if (b.voteCount !== a.voteCount) return b.voteCount - a.voteCount;
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.cleaned.length !== a.cleaned.length) return b.cleaned.length - a.cleaned.length;
+        return a.attempts[0] - b.attempts[0];
+    });
+
+    return groups[0];
+}
+
+async function runSingleOcrAttempt(attempt, runId, abortToken) {
+    let worker = null;
     try {
         worker = await createFreshCameraWorker();
-        if (runId !== currentRecognitionRunId) {
+
+        if (runId !== currentRecognitionRunId || abortToken !== cameraAbortToken) {
             return { aborted: true };
         }
 
-        for (let i = 0; i < attempts.length; i++) {
-            if (runId !== currentRecognitionRunId) {
-                return { aborted: true };
-            }
+        const result = await recognizeWithTimeout(worker, attempt.canvas, OCR_ATTEMPT_TIMEOUT_MS);
 
-            const attempt = attempts[i];
-            updateAttemptProgress(attempt.name);
-
-            let raw = "";
-            try {
-                const result = await recognizeWithTimeout(worker, attempt.canvas, OCR_ATTEMPT_TIMEOUT_MS);
-                raw = (result?.data?.text || "").trim();
-            } catch (error) {
-                if (isWorkerFatalError(error)) {
-                    fatalWorkerError = error;
-                    break;
-                } else {
-                    continue;
-                }
-            }
-
-            if (runId !== currentRecognitionRunId) {
-                return { aborted: true };
-            }
-
-            const cleaned = cleanupOcrText(raw);
-            const score = scoreCandidate(cleaned);
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestText = cleaned;
-                bestAttemptIndex = i;
-                bestAttemptName = attempt.name;
-            }
-
-            if (score >= 14) {
-                break;
-            }
-
-            await sleep(80);
+        if (runId !== currentRecognitionRunId || abortToken !== cameraAbortToken) {
+            return { aborted: true };
         }
 
-        if (fatalWorkerError) {
-            return {
-                ok: false,
-                workerFatal: true,
-                error: fatalWorkerError
-            };
-        }
+        const raw = (result?.data?.text || "").trim();
+        const cleaned = cleanupOcrText(raw);
 
         return {
             ok: true,
-            bestText,
-            bestScore,
-            bestAttemptIndex,
-            bestAttemptName
+            raw,
+            cleaned
+        };
+    } catch (error) {
+        return {
+            ok: false,
+            error
         };
     } finally {
         await safeTerminateWorker(worker);
@@ -2142,61 +2137,41 @@ async function startRecognitionFlow() {
 
     try {
         const attempts = buildAttemptCanvases();
+        const collectedResults = [];
 
-        let bestTextOverall = "";
-        let bestScoreOverall = -9999;
-        let bestAttemptNameOverall = "";
-        let lastWorkerError = null;
-        let hadWorkerRestart = false;
-
-        for (let round = 1; round <= OCR_TOTAL_ROUNDS; round++) {
+        for (let i = 0; i < attempts.length; i++) {
             if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
 
-            if (round > 1) {
-                hadWorkerRestart = true;
-                setCameraProgress("ocrworker 고장으로 처음부터 다시 시작합니다");
-                cameraRecognizedText.textContent = "1번째 전처리중";
-                cameraRecognizedText.classList.add("placeholder");
-                await sleep(300);
-            }
+            const attempt = attempts[i];
+            updateAttemptProgress(attempt.name);
+            await sleep(60);
 
-            const result = await runFullAttemptRound(attempts, runId);
+            const result = await runSingleOcrAttempt(attempt, runId, localAbortToken);
             if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
             if (result?.aborted) return;
 
             if (result.ok) {
-                if (result.bestScore > bestScoreOverall) {
-                    bestScoreOverall = result.bestScore;
-                    bestTextOverall = result.bestText;
-                    bestAttemptNameOverall = result.bestAttemptName;
-                }
-
-                if (bestTextOverall) {
-                    break;
-                }
-
-                if (!bestTextOverall && round < OCR_TOTAL_ROUNDS) {
-                    setCameraProgress("결과가 약해서 처음부터 다시 시도합니다");
-                    await sleep(250);
-                }
-            } else if (result.workerFatal) {
-                lastWorkerError = result.error;
-                if (round < OCR_TOTAL_ROUNDS) {
-                    continue;
-                }
+                const normalized = normalizeOcrVote(result.cleaned);
+                collectedResults.push({
+                    attemptIndex: i + 1,
+                    attemptName: attempt.name,
+                    raw: result.raw,
+                    cleaned: result.cleaned,
+                    normalized
+                });
             }
         }
 
         if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
 
-        if (!bestTextOverall) {
-            const reasonText = lastWorkerError
-                ? "ocrworker 오류로 인해 인식에 실패했습니다."
-                : "인식 가능한 결과를 찾지 못했습니다.";
+        setCameraProgress("결과 비교중");
+        cameraRecognizedText.textContent = "결과 비교중";
+        cameraRecognizedText.classList.add("placeholder");
 
-            setCameraProgress(
-                `${reasonText}\n처음 전처리부터 다시 시도했지만 적절한 텍스트를 얻지 못했습니다.`
-            );
+        const bestCandidate = pickBestVotedCandidate(collectedResults);
+
+        if (!bestCandidate || !bestCandidate.cleaned) {
+            setCameraProgress("인식 가능한 결과를 찾지 못했습니다.");
             setCameraText(
                 "인식에 실패했습니다.",
                 "범위를 더 좁히거나 글자가 더 선명한 사진으로 다시 시도해 주세요.",
@@ -2207,19 +2182,17 @@ async function startRecognitionFlow() {
             return;
         }
 
-        cameraRecognizedText.textContent = bestTextOverall;
+        cameraRecognizedText.textContent = bestCandidate.cleaned;
         cameraRecognizedText.classList.remove("placeholder");
 
         setCameraProgress(
-            hadWorkerRestart
-                ? `인식 완료\nworker 재시작 후 선택된 결과: ${bestAttemptNameOverall || "최적 결과"}`
-                : `인식 완료\n선택된 결과: ${bestAttemptNameOverall || "최적 결과"}`
+            `인식 완료\n선택된 회차: ${bestCandidate.attempts.join(", ")}회차\n중복 수: ${bestCandidate.voteCount}`
         );
 
         cameraTranslatedText.textContent = "번역중";
         cameraTranslatedText.classList.add("placeholder");
 
-        const translatedKo = await translateMnToKo(bestTextOverall);
+        const translatedKo = await translateMnToKo(bestCandidate.cleaned);
         if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
 
         if (!translatedKo) {
