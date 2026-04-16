@@ -861,7 +861,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver18.1</div>
+<div class="version">ver18.2</div>
 <button class="mode-switch" id="modeSwitchBtn" onclick="handleModeSwitch()">📷</button>
 
 <div id="mainPage" class="page">
@@ -1834,8 +1834,8 @@ async function ensureCameraWorker() {
     return cameraWorker;
 }
 
-/* 18.1 speed optimization */
-function buildOptimizedOcrCanvas() {
+/* 18.2 multiple preprocess */
+function createBaseCropCanvas() {
     const { sx, sy, sw, sh } = getBoxRectRelativeToImage();
 
     const rawCanvas = document.createElement("canvas");
@@ -1844,35 +1844,331 @@ function buildOptimizedOcrCanvas() {
     const rawCtx = rawCanvas.getContext("2d");
     rawCtx.drawImage(cameraSnapshot, sx, sy, sw, sh, 0, 0, sw, sh);
 
-    const maxWidth = 900;
-    const scale = Math.min(1, maxWidth / sw);
-    const finalW = Math.max(1, Math.round(sw * scale));
-    const finalH = Math.max(1, Math.round(sh * scale));
+    return rawCanvas;
+}
 
-    const finalCanvas = document.createElement("canvas");
-    finalCanvas.width = finalW;
-    finalCanvas.height = finalH;
-    const finalCtx = finalCanvas.getContext("2d");
-    finalCtx.drawImage(rawCanvas, 0, 0, finalW, finalH);
+function resizeCanvas(canvas, targetWidth) {
+    const scale = Math.min(1, targetWidth / canvas.width);
+    const finalW = Math.max(1, Math.round(canvas.width * scale));
+    const finalH = Math.max(1, Math.round(canvas.height * scale));
 
-    const imageData = finalCtx.getImageData(0, 0, finalW, finalH);
+    const out = document.createElement("canvas");
+    out.width = finalW;
+    out.height = finalH;
+
+    const ctx = out.getContext("2d");
+    ctx.drawImage(canvas, 0, 0, finalW, finalH);
+    return out;
+}
+
+function upscaleCanvas(canvas, factor) {
+    const out = document.createElement("canvas");
+    out.width = Math.max(1, Math.round(canvas.width * factor));
+    out.height = Math.max(1, Math.round(canvas.height * factor));
+
+    const ctx = out.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(canvas, 0, 0, out.width, out.height);
+    return out;
+}
+
+function cloneCanvas(canvas) {
+    const out = document.createElement("canvas");
+    out.width = canvas.width;
+    out.height = canvas.height;
+    const ctx = out.getContext("2d");
+    ctx.drawImage(canvas, 0, 0);
+    return out;
+}
+
+function grayscaleCanvas(canvas) {
+    const out = cloneCanvas(canvas);
+    const ctx = out.getContext("2d", { willReadFrequently: true });
+    const imageData = ctx.getImageData(0, 0, out.width, out.height);
     const data = imageData.data;
 
     for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-
-        let gray = r * 0.299 + g * 0.587 + b * 0.114;
-        gray = gray > 145 ? 255 : gray < 110 ? 0 : gray;
-
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
         data[i] = gray;
         data[i + 1] = gray;
         data[i + 2] = gray;
     }
 
-    finalCtx.putImageData(imageData, 0, 0);
-    return finalCanvas;
+    ctx.putImageData(imageData, 0, 0);
+    return out;
+}
+
+function thresholdCanvas(canvas, low, high) {
+    const out = grayscaleCanvas(canvas);
+    const ctx = out.getContext("2d", { willReadFrequently: true });
+    const imageData = ctx.getImageData(0, 0, out.width, out.height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+        let gray = data[i];
+        gray = gray > high ? 255 : gray < low ? 0 : gray;
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    return out;
+}
+
+function contrastCanvas(canvas, contrastValue = 40, brightness = 0) {
+    const out = cloneCanvas(canvas);
+    const ctx = out.getContext("2d", { willReadFrequently: true });
+    const imageData = ctx.getImageData(0, 0, out.width, out.height);
+    const data = imageData.data;
+
+    const factor = (259 * (contrastValue + 255)) / (255 * (259 - contrastValue));
+
+    for (let i = 0; i < data.length; i += 4) {
+        data[i] = clampColor(factor * (data[i] - 128) + 128 + brightness);
+        data[i + 1] = clampColor(factor * (data[i + 1] - 128) + 128 + brightness);
+        data[i + 2] = clampColor(factor * (data[i + 2] - 128) + 128 + brightness);
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    return out;
+}
+
+function sharpenCanvas(canvas) {
+    const out = cloneCanvas(canvas);
+    const ctx = out.getContext("2d", { willReadFrequently: true });
+    const src = ctx.getImageData(0, 0, out.width, out.height);
+    const dst = ctx.createImageData(out.width, out.height);
+
+    const w = out.width;
+    const h = out.height;
+    const srcData = src.data;
+    const dstData = dst.data;
+
+    const kernel = [
+         0, -1,  0,
+        -1,  5, -1,
+         0, -1,  0
+    ];
+
+    for (let y = 1; y < h - 1; y++) {
+        for (let x = 1; x < w - 1; x++) {
+            let r = 0, g = 0, b = 0;
+
+            let k = 0;
+            for (let ky = -1; ky <= 1; ky++) {
+                for (let kx = -1; kx <= 1; kx++) {
+                    const idx = ((y + ky) * w + (x + kx)) * 4;
+                    const weight = kernel[k++];
+                    r += srcData[idx] * weight;
+                    g += srcData[idx + 1] * weight;
+                    b += srcData[idx + 2] * weight;
+                }
+            }
+
+            const outIdx = (y * w + x) * 4;
+            dstData[outIdx] = clampColor(r);
+            dstData[outIdx + 1] = clampColor(g);
+            dstData[outIdx + 2] = clampColor(b);
+            dstData[outIdx + 3] = srcData[outIdx + 3];
+        }
+    }
+
+    ctx.putImageData(dst, 0, 0);
+    return out;
+}
+
+function clampColor(value) {
+    return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function buildOcrVariants() {
+    const baseCrop = createBaseCropCanvas();
+    const resized = resizeCanvas(baseCrop, 1100);
+    const upscaled = upscaleCanvas(resized, 1.5);
+
+    const variants = [];
+
+    const original = cloneCanvas(upscaled);
+    variants.push({ name: "원본 확대", canvas: original });
+
+    const gray = grayscaleCanvas(upscaled);
+    variants.push({ name: "회색조", canvas: gray });
+
+    const contrastStrong = contrastCanvas(gray, 65, 6);
+    variants.push({ name: "고대비", canvas: contrastStrong });
+
+    const thresholdSoft = thresholdCanvas(upscaled, 105, 165);
+    variants.push({ name: "약한 흑백", canvas: thresholdSoft });
+
+    const thresholdStrong = thresholdCanvas(upscaled, 120, 150);
+    variants.push({ name: "강한 흑백", canvas: thresholdStrong });
+
+    const sharp = sharpenCanvas(contrastCanvas(gray, 45, 0));
+    variants.push({ name: "선명화", canvas: sharp });
+
+    return variants;
+}
+
+function cleanupOcrText(text) {
+    return String(text || "")
+        .replace(/\r/g, "\n")
+        .replace(/[ \t]+/g, " ")
+        .replace(/\n{2,}/g, "\n")
+        .replace(/[|`´]/g, "")
+        .trim();
+}
+
+function normalizeCompareText(text) {
+    return cleanupOcrText(text)
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function getMongolianRatio(text) {
+    if (!text) return 0;
+    const chars = [...text];
+    const validChars = chars.filter(ch => /[A-Za-zА-Яа-яЁёҮүӨө0-9]/.test(ch));
+    if (!validChars.length) return 0;
+
+    const mongolianLike = validChars.filter(ch => /[А-Яа-яЁёҮүӨө]/.test(ch));
+    return mongolianLike.length / validChars.length;
+}
+
+function getWeirdCharRatio(text) {
+    if (!text) return 1;
+    const chars = [...text];
+    if (!chars.length) return 1;
+
+    const weird = chars.filter(ch => !/[A-Za-zА-Яа-яЁёҮүӨө0-9\s.,!?'"()\-]/.test(ch));
+    return weird.length / chars.length;
+}
+
+function similarityScore(a, b) {
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+
+    const aSet = new Set(a.split(" "));
+    const bSet = new Set(b.split(" "));
+    const union = new Set([...aSet, ...bSet]);
+    let inter = 0;
+
+    for (const value of aSet) {
+        if (bSet.has(value)) inter++;
+    }
+
+    const wordScore = union.size ? inter / union.size : 0;
+
+    const charA = new Set([...a.replace(/\s/g, "")]);
+    const charB = new Set([...b.replace(/\s/g, "")]);
+    const charUnion = new Set([...charA, ...charB]);
+    let charInter = 0;
+
+    for (const value of charA) {
+        if (charB.has(value)) charInter++;
+    }
+
+    const charScore = charUnion.size ? charInter / charUnion.size : 0;
+    return (wordScore * 0.55) + (charScore * 0.45);
+}
+
+function scoreOcrResult(result, allResults) {
+    const raw = cleanupOcrText(result.text);
+    const normalized = normalizeCompareText(raw);
+
+    if (!normalized) return -9999;
+
+    const lengthScore = Math.min(raw.length, 60) * 1.1;
+    const lineBonus = raw.includes("\n") ? 4 : 0;
+    const mongolianBonus = getMongolianRatio(raw) * 34;
+    const weirdPenalty = getWeirdCharRatio(raw) * 38;
+    const confidenceScore = Math.max(0, (result.confidence || 0)) * 0.42;
+
+    let similarityBonus = 0;
+    for (const other of allResults) {
+        if (other === result) continue;
+        const otherNorm = normalizeCompareText(other.text);
+        if (!otherNorm) continue;
+        similarityBonus += similarityScore(normalized, otherNorm) * 9;
+    }
+
+    return lengthScore + lineBonus + mongolianBonus + confidenceScore + similarityBonus - weirdPenalty;
+}
+
+function dedupeAndRankResults(results) {
+    const grouped = new Map();
+
+    for (const result of results) {
+        const cleaned = cleanupOcrText(result.text);
+        const key = normalizeCompareText(cleaned);
+        if (!key) continue;
+
+        if (!grouped.has(key)) {
+            grouped.set(key, {
+                text: cleaned,
+                variants: [result.variantName],
+                confidenceList: [result.confidence || 0],
+                rawItems: [result]
+            });
+        } else {
+            const group = grouped.get(key);
+            group.variants.push(result.variantName);
+            group.confidenceList.push(result.confidence || 0);
+            group.rawItems.push(result);
+        }
+    }
+
+    const merged = [...grouped.values()].map(group => {
+        const avgConfidence = group.confidenceList.reduce((a, b) => a + b, 0) / group.confidenceList.length;
+        return {
+            text: group.text,
+            confidence: avgConfidence,
+            repeatCount: group.variants.length,
+            variants: group.variants,
+            rawItems: group.rawItems
+        };
+    });
+
+    const scored = merged.map(item => {
+        const score = scoreOcrResult(
+            {
+                text: item.text,
+                confidence: item.confidence
+            },
+            merged.map(v => ({ text: v.text, confidence: v.confidence }))
+        ) + (item.repeatCount - 1) * 10;
+
+        return {
+            ...item,
+            score
+        };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored;
+}
+
+async function recognizeSingleVariant(worker, variantCanvas, variantName) {
+    const { data } = await worker.recognize(variantCanvas);
+    return {
+        variantName,
+        text: data?.text || "",
+        confidence: data?.confidence || 0
+    };
+}
+
+async function translateMnToKo(text) {
+    const response = await fetch(
+        "https://translate.googleapis.com/translate_a/single?client=gtx&sl=mn&tl=ko&dt=t&q=" +
+        encodeURIComponent(text)
+    );
+    const data = await response.json();
+    return data?.[0]?.map(row => row[0]).join("")?.trim() || "";
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function startRecognitionFlow() {
@@ -1888,58 +2184,95 @@ async function startRecognitionFlow() {
 
     hideFullscreenCamera();
 
-    setCameraText("OCR 인식 중...", "번역 대기 중...", true, true);
+    setCameraText("이미지 준비 중.", "번역 대기 중...", true, true);
 
     try {
-        startProgressDots("OCR 인식 중");
-        const ocrCanvas = buildOptimizedOcrCanvas();
+        /* 1단계 */
+        startProgressDots("1/6 이미지 준비 중");
+        await sleep(180);
+        if (token !== cameraAbortToken) return;
 
+        /* 2단계 */
+        stopProgressDots();
+        startProgressDots("2/6 OCR 영역 처리 중");
+        const baseCrop = createBaseCropCanvas();
+        await sleep(180);
+        if (token !== cameraAbortToken) return;
+
+        /* 3단계 */
+        stopProgressDots();
+        startProgressDots("3/6 이미지 최적화 중");
+        const variants = buildOcrVariants(baseCrop);
+        await sleep(220);
+        if (token !== cameraAbortToken) return;
+
+        if (!variants.length) {
+            stopProgressDots("전처리 실패");
+            setCameraText("전처리에 실패했습니다.", "다시 시도해 주세요.", true, true);
+            showToast("전처리 실패");
+            return;
+        }
+
+        /* 4단계 */
+        stopProgressDots();
         const worker = await ensureCameraWorker();
         if (token !== cameraAbortToken) return;
 
-        const { data } = await worker.recognize(ocrCanvas);
-        if (token !== cameraAbortToken) return;
+        const ocrResults = [];
+        for (let i = 0; i < variants.length; i++) {
+            const current = variants[i];
+            progressDots = 1;
+            progressBaseText = `4/6 OCR 실행 중 (${i + 1}/${variants.length})`;
+            stopProgressDots();
+            startProgressDots(progressBaseText);
 
-        const rawText = (data.text || "").trim();
+            cameraTranslatedText.textContent = `${current.name} 분석 중.`;
+            cameraTranslatedText.classList.add("placeholder");
 
+            const result = await recognizeSingleVariant(worker, current.canvas, current.name);
+            if (token !== cameraAbortToken) return;
+
+            ocrResults.push(result);
+            await sleep(80);
+        }
+
+        /* 5단계 */
         stopProgressDots();
-        startProgressDots("텍스트 후처리 중");
-        await sleep(250);
+        startProgressDots("5/6 결과 정리 중");
+        await sleep(180);
         if (token !== cameraAbortToken) return;
 
-        const recognizedText = cleanupOcrText(rawText);
+        const ranked = dedupeAndRankResults(ocrResults);
+        const best = ranked[0];
 
-        if (!recognizedText) {
+        if (!best || !cleanupOcrText(best.text)) {
             stopProgressDots("인식에 실패했습니다. 범위를 다시 조정해 주세요.");
             setCameraText("인식에 실패했습니다.", "범위를 다시 조정해 주세요.", true, true);
             showToast("인식 실패");
             return;
         }
 
-        stopProgressDots();
-        startProgressDots("번역 요청 중");
-        cameraTranslatedText.textContent = "번역 요청 중.";
-        cameraTranslatedText.classList.add("placeholder");
-        await sleep(220);
-        if (token !== cameraAbortToken) return;
-
-        stopProgressDots();
-        startProgressDots("번역 중");
-        cameraRecognizedText.textContent = recognizedText;
+        cameraRecognizedText.textContent = cleanupOcrText(best.text);
         cameraRecognizedText.classList.remove("placeholder");
 
-        const translatedKo = await translateMnToKo(recognizedText);
+        /* 6단계 */
+        stopProgressDots();
+        startProgressDots("6/6 번역 중");
+        cameraTranslatedText.textContent = "번역 중.";
+        cameraTranslatedText.classList.add("placeholder");
+
+        const translatedKo = await translateMnToKo(best.text);
         if (token !== cameraAbortToken) return;
 
         stopProgressDots("완료되었습니다.");
 
         if (!translatedKo) {
-            setCameraText(recognizedText, "번역에 실패했습니다.", false, true);
+            setCameraText(cleanupOcrText(best.text), "번역에 실패했습니다.", false, true);
             showToast("번역 실패");
             return;
         }
 
-        setCameraText(recognizedText, translatedKo, false, false);
+        setCameraText(cleanupOcrText(best.text), translatedKo, false, false);
         showToast("인식 완료");
     } catch (error) {
         console.error(error);
@@ -1969,27 +2302,6 @@ function abortCameraRecognition(reopenCamera = false) {
     if (reopenCamera) {
         openFullscreenCamera();
     }
-}
-
-function cleanupOcrText(text) {
-    return text
-        .replace(/\r/g, "\n")
-        .replace(/[ \t]+/g, " ")
-        .replace(/\n{2,}/g, "\n")
-        .trim();
-}
-
-async function translateMnToKo(text) {
-    const response = await fetch(
-        "https://translate.googleapis.com/translate_a/single?client=gtx&sl=mn&tl=ko&dt=t&q=" +
-        encodeURIComponent(text)
-    );
-    const data = await response.json();
-    return data?.[0]?.map(row => row[0]).join("")?.trim() || "";
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /* OCR box drag & resize */
