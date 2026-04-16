@@ -845,7 +845,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver19</div>
+<div class="version">ver19.1</div>
 <button class="mode-switch" id="modeSwitchBtn" onclick="handleModeSwitch()">📷</button>
 
 <div id="mainPage" class="page">
@@ -1423,7 +1423,7 @@ function getBestEnglishVoice() {
     const voices = cachedVoices.length ? cachedVoices : refreshVoices();
     if (!voices.length) return null;
 
-    const preferred = voices.find(v => /^en[-_]/i.test(v.lang) && /google|samantha|daniel|alex|serena|victoria/i.test(v.name));
+    const preferred = voices.find(v => /^en[-_]/i.test(v.lang) && /google|samantha|daniel|alex|serena|victoria|zira/i.test(v.name));
     if (preferred) return preferred;
 
     const english = voices.find(v => /^en[-_]/i.test(v.lang));
@@ -1437,37 +1437,60 @@ function romanToTtsEnglish(text) {
 
     t = t.replace(/[()]/g, " ");
     t = t.replace(/[\/]/g, " ");
-    t = t.replace(/-/g, " ");
     t = t.replace(/~/g, " ");
-    t = t.replace(/\s+/g, " ");
+    t = t.replace(/-/g, " ");
+    t = t.replace(/\s+/g, " ").trim();
 
     t = t.replace(/ö/g, "uh");
-    t = t.replace(/ü/g, "oo");
+    t = t.replace(/ü/g, "yuu");
 
+    t = t.replace(/kh/g, "kha");
+    t = t.replace(/ts/g, "tss");
+    t = t.replace(/ch/g, "chee");
+    t = t.replace(/sh/g, "shee");
+    t = t.replace(/\bj/g, "zh");
+    t = t.replace(/j/g, "zh");
+
+    t = t.replace(/yaa/g, "yaa");
     t = t.replace(/ya/g, "yaa");
     t = t.replace(/yo/g, "yoh");
     t = t.replace(/yu/g, "yoo");
     t = t.replace(/ye/g, "yeh");
 
-    t = t.replace(/kh/g, "h");
-    t = t.replace(/ts/g, "ts");
-    t = t.replace(/sh/g, "sh");
-    t = t.replace(/ch/g, "ch");
-    t = t.replace(/aa/g, "ah");
-    t = t.replace(/oo/g, "oh");
-    t = t.replace(/ee/g, "eh");
-    t = t.replace(/ii/g, "ee");
+    t = t.replace(/aa/g, "aaa");
+    t = t.replace(/oo/g, "ooo");
+    t = t.replace(/uu/g, "uuu");
+    t = t.replace(/ee/g, "ehh");
+    t = t.replace(/ii/g, "eee");
 
-    t = t.replace(/\buu\b/g, "oo");
-    t = t.replace(/\bui\b/g, "oo-ee");
+    t = t.replace(/\buu\b/g, "ooo");
+    t = t.replace(/\bui\b/g, "oo ee");
     t = t.replace(/\bai\b/g, "eye");
     t = t.replace(/\boi\b/g, "oy");
     t = t.replace(/\bau\b/g, "ow");
 
-    t = t.replace(/\bmn\b/g, "men");
-    t = t.replace(/\buu?\b/g, "oo");
-    t = t.replace(/\bj\b/g, "j");
+    t = t.replace(/\bö\b/g, "uh");
+    t = t.replace(/\bü\b/g, "yuu");
+
+    t = t.replace(/\bya\b/g, "yaa");
+    t = t.replace(/\byo\b/g, "yoh");
+    t = t.replace(/\byu\b/g, "yoo");
+
+    t = t.replace(/\bain\b/g, "ine");
+    t = t.replace(/\bbain\b/g, "bine");
+    t = t.replace(/\bsain\b/g, "sine");
+    t = t.replace(/\bbaina\b/g, "baina");
+    t = t.replace(/\bbainaa\b/g, "bainaa");
+    t = t.replace(/\bbayar\b/g, "bayaar");
+    t = t.replace(/\blalaa\b/g, "laalaa");
+    t = t.replace(/\bbayarlalaa\b/g, "bayaarlaalaa");
+    t = t.replace(/\bamar\b/g, "aamar");
+    t = t.replace(/\bsain\b/g, "sine");
+    t = t.replace(/\buu?\b/g, "ooo");
+
     t = t.replace(/\by\b/g, "ee");
+    t = t.replace(/\br\b/g, "r");
+    t = t.replace(/\bq\b/g, "k");
 
     t = t.replace(/\s+/g, " ").trim();
     return t;
@@ -1510,8 +1533,8 @@ function speakHistoryRoman(id) {
 
     if (voice) utterance.voice = voice;
     utterance.lang = voice?.lang || "en-US";
-    utterance.rate = 0.82;
-    utterance.pitch = 1.0;
+    utterance.rate = 0.74;
+    utterance.pitch = 0.96;
     utterance.volume = 1;
 
     utterance.onstart = () => {
