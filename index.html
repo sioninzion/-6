@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>🇲🇳 신나는 몽골어 번역기 ver19.6</title>
+<title>🇲🇳 신나는 몽골어 번역기 ver19.7</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 * { box-sizing: border-box; }
@@ -386,7 +386,24 @@ input:focus { border-color: #2d8cff; }
     line-height: 1;
 }
 
+
 /* 카메라 전체화면 */
+.camera-guide-text {
+    position: absolute;
+    left: 50%;
+    top: calc(50% - 110px);
+    transform: translateX(-50%);
+    z-index: 19;
+    color: rgba(255,255,255,0.92);
+    background: rgba(0,0,0,0.38);
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    display: none;
+}
+
 #cameraFullscreen {
     position: fixed;
     inset: 0;
@@ -462,44 +479,41 @@ input:focus { border-color: #2d8cff; }
     cursor: default;
 }
 
+
 .ocr-box {
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 220px;
-    height: 120px;
+    width: min(78vw, 520px);
+    aspect-ratio: 16 / 9;
+    height: auto;
     transform: translate(-50%, -50%);
     border: 3px solid #2d8cff;
-    border-radius: 16px;
+    border-radius: 18px;
     background: rgba(45,140,255,0.10);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.26);
     z-index: 18;
     display: none;
-    touch-action: none;
+    pointer-events: none;
 }
 .ocr-box-label {
     position: absolute;
-    top: -28px;
-    left: 0;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
     font-size: 12px;
-    color: rgba(255,255,255,0.86);
-    background: rgba(0,0,0,0.38);
-    padding: 5px 9px;
+    color: rgba(255,255,255,0.92);
+    background: rgba(0,0,0,0.42);
+    padding: 5px 10px;
     border-radius: 999px;
     white-space: nowrap;
 }
-.handle {
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    border-radius: 999px;
-    background: white;
-    border: 2px solid #2d8cff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-}
-.handle.nw { left: -9px; top: -9px; cursor: nwse-resize; }
-.handle.ne { right: -9px; top: -9px; cursor: nesw-resize; }
-.handle.sw { left: -9px; bottom: -9px; cursor: nesw-resize; }
-.handle.se { right: -9px; bottom: -9px; cursor: nwse-resize; }
+.handle { display: none; }
+.handle.nw { display:none; }
+.handle.ne { display:none; }
+.handle.sw { display:none; }
+.handle.se { display:none; }
+
 
 /* 스크린 모드 */
 #screenMode {
@@ -816,8 +830,9 @@ input:focus { border-color: #2d8cff; }
     }
 
     .ocr-box {
-        width: 180px;
-        height: 96px;
+        width: min(82vw, 420px);
+        aspect-ratio: 16 / 9;
+        height: auto;
     }
 
     .camera-box-content {
@@ -938,6 +953,7 @@ input:focus { border-color: #2d8cff; }
     </div>
 
     <button class="camera-fs-exit" id="cameraExitBtn" onclick="closeFullscreenCamera()">나가기</button>
+    <div class="camera-guide-text" id="cameraGuideText">가이드 안에 몽골어를 넣고 촬영하세요</div>
 
     <div class="ocr-box" id="ocrBox">
         <div class="ocr-box-label">이 범위를 인식합니다</div>
@@ -949,7 +965,7 @@ input:focus { border-color: #2d8cff; }
 
     <div class="camera-fs-controls" id="cameraControls">
         <button class="camera-control-btn" id="captureBtn" onclick="captureOrRetake()">촬영</button>
-        <button class="camera-control-btn" id="rangeBtn" onclick="toggleRangeBox()" disabled>범위 선택</button>
+        <button class="camera-control-btn" id="rangeBtn" onclick="toggleRangeBox()" disabled style="display:none;">범위 선택</button>
         <button class="camera-control-btn primary" id="recognizeBtn" onclick="startRecognitionFlow()">인식</button>
     </div>
 </div>
@@ -1162,6 +1178,7 @@ let cachedVoices = [];
 const cameraVideo = document.getElementById("cameraVideo");
 const cameraSnapshot = document.getElementById("cameraSnapshot");
 const cameraPlaceholder = document.getElementById("cameraPlaceholder");
+const cameraGuideText = document.getElementById("cameraGuideText");
 const cameraFullscreen = document.getElementById("cameraFullscreen");
 const captureBtn = document.getElementById("captureBtn");
 const rangeBtn = document.getElementById("rangeBtn");
@@ -1948,6 +1965,40 @@ function setCameraProgress(text) {
     cameraProgress.textContent = text;
 }
 
+
+function resetGuideBox() {
+    const maxWidth = Math.min(window.innerWidth * 0.82, 520);
+    const minWidth = Math.min(window.innerWidth * 0.62, 240);
+    const boxWidth = Math.max(minWidth, maxWidth);
+    const boxHeight = Math.round(boxWidth * 9 / 16);
+
+    ocrBox.style.width = boxWidth + "px";
+    ocrBox.style.height = boxHeight + "px";
+    ocrBox.style.left = "50%";
+    ocrBox.style.top = "50%";
+    ocrBox.style.transform = "translate(-50%, -50%)";
+}
+
+function getGuideRectRelativeToElement(element, sourceWidth, sourceHeight) {
+    const elementRect = element.getBoundingClientRect();
+    const guideRect = ocrBox.getBoundingClientRect();
+
+    const offsetX = guideRect.left - elementRect.left;
+    const offsetY = guideRect.top - elementRect.top;
+    const scaleX = sourceWidth / elementRect.width;
+    const scaleY = sourceHeight / elementRect.height;
+
+    let sx = Math.max(0, Math.round(offsetX * scaleX));
+    let sy = Math.max(0, Math.round(offsetY * scaleY));
+    let sw = Math.max(1, Math.round(guideRect.width * scaleX));
+    let sh = Math.max(1, Math.round(guideRect.height * scaleY));
+
+    sw = Math.min(sw, sourceWidth - sx);
+    sh = Math.min(sh, sourceHeight - sy);
+
+    return { sx, sy, sw, sh };
+}
+
 function resetCameraUi() {
     stopCameraStream();
     hideFullscreenCamera();
@@ -1964,17 +2015,21 @@ function resetCameraUi() {
     cameraPlaceholder.innerHTML = "카메라를 열면 이곳에 크게 표시됩니다";
 
     ocrBox.style.display = "none";
-    ocrBox.style.pointerEvents = "";
+    ocrBox.style.pointerEvents = "none";
+    cameraGuideText.style.display = "none";
 
     captureBtn.disabled = false;
     captureBtn.textContent = "촬영";
-    rangeBtn.disabled = true;
-    rangeBtn.textContent = "범위 선택";
+    if (rangeBtn) {
+        if (rangeBtn) rangeBtn.disabled = true;
+        rangeBtn.textContent = "범위 선택";
+    }
     recognizeBtn.disabled = true;
 
     setCameraProgress("");
     setCameraText("인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
 }
+
 
 function hideFullscreenCamera() {
     cameraFullscreen.classList.remove("active");
@@ -1988,6 +2043,7 @@ function closeCameraModeToMain() {
     resetCameraUi();
     toggleMode("main");
 }
+
 
 async function openFullscreenCamera() {
     try {
@@ -2008,17 +2064,21 @@ async function openFullscreenCamera() {
         cameraPlaceholder.style.display = "none";
         cameraVideo.style.display = "block";
         cameraSnapshot.style.display = "none";
-        ocrBox.style.display = "none";
-        ocrBox.style.pointerEvents = "";
+        ocrBox.style.display = "block";
+        ocrBox.style.pointerEvents = "none";
+        cameraGuideText.style.display = "block";
+        resetGuideBox();
 
         captureBtn.disabled = false;
         captureBtn.textContent = "촬영";
-        rangeBtn.disabled = true;
-        rangeBtn.textContent = "범위 선택";
+        if (rangeBtn) {
+            if (rangeBtn) rangeBtn.disabled = true;
+            rangeBtn.textContent = "범위 선택";
+        }
         recognizeBtn.disabled = true;
 
         showFullscreenCamera();
-        setCameraProgress("장면이 보이면 촬영 버튼을 누르세요.");
+        setCameraProgress("가이드 안에 몽골어를 넣고 촬영하세요.");
     } catch (error) {
         console.error(error);
         cameraPlaceholder.style.display = "flex";
@@ -2027,6 +2087,7 @@ async function openFullscreenCamera() {
         showToast("카메라 권한 확인");
     }
 }
+
 
 function stopCameraStream() {
     if (currentStream) {
@@ -2045,79 +2106,76 @@ function captureOrRetake() {
     else openFullscreenCamera();
 }
 
+
 function captureShot() {
     if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) return;
 
-    const canvas = document.createElement("canvas");
-    canvas.width = cameraVideo.videoWidth;
-    canvas.height = cameraVideo.videoHeight;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+    const fullCanvas = document.createElement("canvas");
+    fullCanvas.width = cameraVideo.videoWidth;
+    fullCanvas.height = cameraVideo.videoHeight;
+    const fullCtx = fullCanvas.getContext("2d");
+    fullCtx.drawImage(cameraVideo, 0, 0, fullCanvas.width, fullCanvas.height);
 
-    cameraSnapshot.src = canvas.toDataURL("image/jpeg", 0.92);
+    const { sx, sy, sw, sh } = getGuideRectRelativeToElement(
+        cameraVideo,
+        cameraVideo.videoWidth,
+        cameraVideo.videoHeight
+    );
+
+    const croppedCanvas = document.createElement("canvas");
+    croppedCanvas.width = sw;
+    croppedCanvas.height = sh;
+    const croppedCtx = croppedCanvas.getContext("2d");
+    croppedCtx.drawImage(fullCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    cameraSnapshot.src = croppedCanvas.toDataURL("image/jpeg", 0.95);
     cameraSnapshot.style.display = "block";
     cameraVideo.style.display = "none";
     stopCameraStream();
 
+    fullCanvas.width = 1;
+    fullCanvas.height = 1;
+    croppedCanvas.width = croppedCanvas.width;
+    croppedCanvas.height = croppedCanvas.height;
+
     cameraShotTaken = true;
-    rangeVisible = false;
+    rangeVisible = true;
     ocrBox.style.display = "none";
+    cameraGuideText.style.display = "none";
 
     captureBtn.textContent = "다시 찍기";
-    rangeBtn.disabled = false;
-    recognizeBtn.disabled = true;
-    rangeBtn.textContent = "범위 선택";
+    if (rangeBtn) {
+        if (rangeBtn) rangeBtn.disabled = true;
+        rangeBtn.textContent = "범위 선택";
+    }
+    recognizeBtn.disabled = false;
 
-    setCameraProgress("촬영되었습니다. '범위 선택'을 눌러 범위를 지정하세요.");
+    setCameraProgress("가이드 영역만 잘라 저장했습니다. 바로 인식할 수 있습니다.");
 }
+
+
 
 function toggleRangeBox() {
-    if (!cameraShotTaken || cameraOcrRunning) return;
-
-    if (!rangeVisible) {
-        resetRangeBox();
-        ocrBox.style.display = "block";
-        rangeVisible = true;
-        recognizeBtn.disabled = false;
-        rangeBtn.textContent = "범위 다시 지정";
-        setCameraProgress("상자의 위치와 크기를 조절한 뒤 '인식'을 누르세요.");
-    } else {
-        resetRangeBox();
-        setCameraProgress("범위를 초기 상태로 되돌렸습니다.");
-    }
+    return;
 }
+
+
 
 function resetRangeBox() {
-    const boxWidth = Math.min(window.innerWidth * 0.34, 220);
-    const boxHeight = Math.min(window.innerHeight * 0.12, 100);
-
-    ocrBox.style.width = boxWidth + "px";
-    ocrBox.style.height = boxHeight + "px";
-    ocrBox.style.left = (window.innerWidth - boxWidth) / 2 + "px";
-    ocrBox.style.top = (window.innerHeight - boxHeight) / 2 + "px";
-    ocrBox.style.transform = "none";
+    resetGuideBox();
 }
+
+
 
 function getBoxRectRelativeToImage() {
-    const imgRect = cameraSnapshot.getBoundingClientRect();
-    const boxRect = ocrBox.getBoundingClientRect();
-
-    const offsetX = boxRect.left - imgRect.left;
-    const offsetY = boxRect.top - imgRect.top;
-
-    const scaleX = cameraSnapshot.naturalWidth / imgRect.width;
-    const scaleY = cameraSnapshot.naturalHeight / imgRect.height;
-
-    let sx = Math.max(0, Math.round(offsetX * scaleX));
-    let sy = Math.max(0, Math.round(offsetY * scaleY));
-    let sw = Math.round(boxRect.width * scaleX);
-    let sh = Math.round(boxRect.height * scaleY);
-
-    sw = Math.max(1, Math.min(sw, cameraSnapshot.naturalWidth - sx));
-    sh = Math.max(1, Math.min(sh, cameraSnapshot.naturalHeight - sy));
-
-    return { sx, sy, sw, sh };
+    return {
+        sx: 0,
+        sy: 0,
+        sw: cameraSnapshot.naturalWidth,
+        sh: cameraSnapshot.naturalHeight
+    };
 }
+
 
 function cleanupOcrText(text) {
     return text
@@ -2150,16 +2208,16 @@ function scoreCandidate(text) {
     return score;
 }
 
-function makeBaseCropCanvas() {
-    const { sx, sy, sw, sh } = getBoxRectRelativeToImage();
 
+function makeBaseCropCanvas() {
     const baseCanvas = document.createElement("canvas");
-    baseCanvas.width = sw;
-    baseCanvas.height = sh;
+    baseCanvas.width = cameraSnapshot.naturalWidth;
+    baseCanvas.height = cameraSnapshot.naturalHeight;
     const ctx = baseCanvas.getContext("2d");
-    ctx.drawImage(cameraSnapshot, sx, sy, sw, sh, 0, 0, sw, sh);
+    ctx.drawImage(cameraSnapshot, 0, 0, baseCanvas.width, baseCanvas.height);
     return baseCanvas;
 }
+
 
 function cloneCanvas(source) {
     const c = document.createElement("canvas");
@@ -2439,7 +2497,7 @@ async function startRecognitionFlow() {
     const runId = ++currentRecognitionRunId;
 
     captureBtn.disabled = true;
-    rangeBtn.disabled = true;
+    if (rangeBtn) rangeBtn.disabled = true;
     recognizeBtn.disabled = true;
     ocrBox.style.pointerEvents = "none";
 
@@ -2647,9 +2705,9 @@ async function startRecognitionFlow() {
         if (runId === currentRecognitionRunId && localAbortToken === cameraAbortToken) {
             cameraOcrRunning = false;
             captureBtn.disabled = false;
-            rangeBtn.disabled = false;
+            if (rangeBtn) rangeBtn.disabled = false;
             recognizeBtn.disabled = false;
-            ocrBox.style.pointerEvents = "";
+            ocrBox.style.pointerEvents = "none";
         }
     }
 }
@@ -2658,19 +2716,20 @@ function abortCameraRecognition(reopenCamera = false) {
     cameraAbortToken++;
     currentRecognitionRunId++;
     cameraOcrRunning = false;
-    ocrBox.style.pointerEvents = "";
+    ocrBox.style.pointerEvents = "none";
 
     setCameraProgress("작업을 중단했습니다.");
     setCameraText("작업을 중단했습니다.", "다시 시도해 주세요.", true, true);
 
     captureBtn.disabled = false;
-    rangeBtn.disabled = !cameraShotTaken;
+    if (rangeBtn) rangeBtn.disabled = !cameraShotTaken;
     recognizeBtn.disabled = !rangeVisible;
 
     if (reopenCamera) {
         openFullscreenCamera();
     }
 }
+
 
 let dragMode = null;
 let startX = 0;
@@ -2684,111 +2743,15 @@ function pxToNumber(value) {
     return parseFloat(String(value).replace("px", "")) || 0;
 }
 
-function beginBoxAction(clientX, clientY, mode) {
-    if (!rangeVisible || cameraOcrRunning) return;
-    dragMode = mode;
-    startX = clientX;
-    startY = clientY;
-    startLeft = pxToNumber(ocrBox.style.left);
-    startTop = pxToNumber(ocrBox.style.top);
-    startWidth = pxToNumber(ocrBox.style.width);
-    startHeight = pxToNumber(ocrBox.style.height);
-}
-
-function moveBoxAction(clientX, clientY) {
-    if (!dragMode || cameraOcrRunning) return;
-
-    const dx = clientX - startX;
-    const dy = clientY - startY;
-
-    let left = startLeft;
-    let top = startTop;
-    let width = startWidth;
-    let height = startHeight;
-
-    const minW = 40;
-    const minH = 24;
-
-    if (dragMode === "move") {
-        left = startLeft + dx;
-        top = startTop + dy;
-    }
-
-    if (dragMode === "se") {
-        width = Math.max(minW, startWidth + dx);
-        height = Math.max(minH, startHeight + dy);
-    }
-
-    if (dragMode === "sw") {
-        width = Math.max(minW, startWidth - dx);
-        height = Math.max(minH, startHeight + dy);
-        left = startLeft + (startWidth - width);
-    }
-
-    if (dragMode === "ne") {
-        width = Math.max(minW, startWidth + dx);
-        height = Math.max(minH, startHeight - dy);
-        top = startTop + (startHeight - height);
-    }
-
-    if (dragMode === "nw") {
-        width = Math.max(minW, startWidth - dx);
-        height = Math.max(minH, startHeight - dy);
-        left = startLeft + (startWidth - width);
-        top = startTop + (startHeight - height);
-    }
-
-    left = Math.max(0, Math.min(left, window.innerWidth - width));
-    top = Math.max(36, Math.min(top, window.innerHeight - height - 70));
-
-    ocrBox.style.left = left + "px";
-    ocrBox.style.top = top + "px";
-    ocrBox.style.width = width + "px";
-    ocrBox.style.height = height + "px";
-}
-
-function endBoxAction() {
-    dragMode = null;
-}
-
+function beginBoxAction() { return; }
+function moveBoxAction() { return; }
+function endBoxAction() { dragMode = null; }
 function getPoint(event) {
     if (event.touches && event.touches[0]) {
         return { x: event.touches[0].clientX, y: event.touches[0].clientY };
     }
     return { x: event.clientX, y: event.clientY };
 }
-
-ocrBox.addEventListener("mousedown", (e) => {
-    if (!rangeVisible || cameraOcrRunning) return;
-    e.preventDefault();
-    const handle = e.target.dataset.handle;
-    const point = getPoint(e);
-    beginBoxAction(point.x, point.y, handle || "move");
-});
-
-window.addEventListener("mousemove", (e) => {
-    const point = getPoint(e);
-    moveBoxAction(point.x, point.y);
-});
-
-window.addEventListener("mouseup", endBoxAction);
-
-ocrBox.addEventListener("touchstart", (e) => {
-    if (!rangeVisible || cameraOcrRunning) return;
-    e.preventDefault();
-    const handle = e.target.dataset.handle;
-    const point = getPoint(e);
-    beginBoxAction(point.x, point.y, handle || "move");
-}, { passive: false });
-
-window.addEventListener("touchmove", (e) => {
-    if (!dragMode || cameraOcrRunning) return;
-    e.preventDefault();
-    const point = getPoint(e);
-    moveBoxAction(point.x, point.y);
-}, { passive: false });
-
-window.addEventListener("touchend", endBoxAction);
 
 /* =========================
    이벤트 / 초기화
@@ -2818,14 +2781,13 @@ document.addEventListener("click", (e) => {
     }
 });
 
+
 window.addEventListener("resize", () => {
-    if (rangeVisible && !cameraOcrRunning) {
-        const left = Math.min(pxToNumber(ocrBox.style.left), window.innerWidth - pxToNumber(ocrBox.style.width));
-        const top = Math.min(pxToNumber(ocrBox.style.top), window.innerHeight - pxToNumber(ocrBox.style.height) - 70);
-        ocrBox.style.left = Math.max(0, left) + "px";
-        ocrBox.style.top = Math.max(36, top) + "px";
+    if (!cameraShotTaken && cameraFullscreen.classList.contains("active")) {
+        resetGuideBox();
     }
 });
+
 
 if ("speechSynthesis" in window) {
     refreshVoices();
