@@ -804,7 +804,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver18.7</div>
+<div class="version">ver18.8</div>
 <button class="mode-switch" id="modeSwitchBtn" onclick="handleModeSwitch()">📷</button>
 
 <div id="mainPage" class="page">
@@ -1204,8 +1204,9 @@ let cameraOcrRunning = false;
 let cameraAbortToken = 0;
 let currentRecognitionRunId = 0;
 
-const OCR_ATTEMPT_TIMEOUT_MS = 7000;
+const OCR_ATTEMPT_TIMEOUT_MS = 12000;
 const OCR_ATTEMPT_SLEEP_MS = 150;
+const OCR_SECONDARY_TIMEOUT_MS = 10000;
 
 const cameraVideo = document.getElementById("cameraVideo");
 const cameraSnapshot = document.getElementById("cameraSnapshot");
@@ -1831,82 +1832,6 @@ function applyThreshold(canvas, threshold = 145) {
     return canvas;
 }
 
-function applyAdaptiveLike(canvas) {
-    const ctx = getImageDataCanvas(canvas);
-    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = img.data;
-
-    let sum = 0;
-    let count = 0;
-    for (let i = 0; i < d.length; i += 4) {
-        const gray = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-        sum += gray;
-        count++;
-    }
-
-    const avg = sum / Math.max(1, count);
-    const threshold = avg > 140 ? avg - 10 : avg + 5;
-
-    for (let i = 0; i < d.length; i += 4) {
-        const gray = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-        const v = gray >= threshold ? 255 : 0;
-        d[i] = d[i + 1] = d[i + 2] = v;
-    }
-
-    ctx.putImageData(img, 0, 0);
-    return canvas;
-}
-
-function applyInvert(canvas) {
-    const ctx = getImageDataCanvas(canvas);
-    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = img.data;
-
-    for (let i = 0; i < d.length; i += 4) {
-        d[i] = 255 - d[i];
-        d[i + 1] = 255 - d[i + 1];
-        d[i + 2] = 255 - d[i + 2];
-    }
-    ctx.putImageData(img, 0, 0);
-    return canvas;
-}
-
-function applySharpen(canvas) {
-    const w = canvas.width;
-    const h = canvas.height;
-    const srcCtx = getImageDataCanvas(canvas);
-    const src = srcCtx.getImageData(0, 0, w, h);
-    const dst = srcCtx.createImageData(w, h);
-
-    const weights = [
-         0, -1,  0,
-        -1,  5, -1,
-         0, -1,  0
-    ];
-
-    for (let y = 1; y < h - 1; y++) {
-        for (let x = 1; x < w - 1; x++) {
-            for (let c = 0; c < 3; c++) {
-                let sum = 0;
-                let idx = 0;
-                for (let ky = -1; ky <= 1; ky++) {
-                    for (let kx = -1; kx <= 1; kx++) {
-                        const px = ((y + ky) * w + (x + kx)) * 4 + c;
-                        sum += src.data[px] * weights[idx++];
-                    }
-                }
-                const outIndex = (y * w + x) * 4 + c;
-                dst.data[outIndex] = Math.max(0, Math.min(255, sum));
-            }
-            const alphaIndex = (y * w + x) * 4 + 3;
-            dst.data[alphaIndex] = 255;
-        }
-    }
-
-    srcCtx.putImageData(dst, 0, 0);
-    return canvas;
-}
-
 function padCanvas(source, pad = 8) {
     const c = document.createElement("canvas");
     c.width = source.width + pad * 2;
@@ -1918,39 +1843,85 @@ function padCanvas(source, pad = 8) {
     return c;
 }
 
-/* =========================
-   ver18.7 OCR 핵심 교체 1
-   ========================= */
-function buildAttemptCanvases() {
-    const base = makeBaseCropCanvas();
-    const resolutions = [960, 780, 640];
-    const attempts = [];
-    let count = 0;
+function normalizeOcrVote(text) {
+    return cleanupOcrText(text || "")
+        .toLowerCase()
+        .replace(/[.,!?;:'"`~^*_+=|\\/()[\]{}<>]/g, "")
+        .replace(/[\u2018\u2019\u201C\u201D]/g, "")
+        .replace(/0/g, "о")
+        .replace(/5/g, "s")
+        .replace(/1/g, "l")
+        .replace(/\s+/g, " ")
+        .trim();
+}
 
-    for (const width of resolutions) {
-        const resized = resizeCanvas(base, width);
+function isMeaningfulOcrText(text) {
+    const cleaned = cleanupOcrText(text || "");
+    if (!cleaned) return false;
+    if (cleaned.length < 2) return false;
 
-        const variants = [
-            { label: "원본", canvas: cloneCanvas(resized) },
-            { label: "grayscale", canvas: applyGrayscale(cloneCanvas(resized)) },
-            { label: "contrast", canvas: applyContrast(applyGrayscale(cloneCanvas(resized)), 1.9) },
-            { label: "threshold", canvas: applyThreshold(applyGrayscale(cloneCanvas(resized)), 145) }
-        ];
+    const compact = cleaned.replace(/\s/g, "");
+    if (compact.length < 2) return false;
 
-        for (const variant of variants) {
-            count++;
-            attempts.push({
-                index: count,
-                name: `${count}번째 전처리중`,
-                detail: `${width}px + ${variant.label}`,
-                canvas: padCanvas(variant.canvas, 6),
-                resolution: width,
-                preprocess: variant.label
-            });
+    const usefulChars = compact.match(/[\u0400-\u04FFA-Za-z0-9]/g) || [];
+    return usefulChars.length >= 2;
+}
+
+function updateAttemptProgress(text) {
+    setCameraProgress(text);
+    cameraRecognizedText.textContent = text;
+    cameraRecognizedText.classList.add("placeholder");
+}
+
+function createAttemptsForResolution(baseCanvas, width, startIndex) {
+    const resized = resizeCanvas(baseCanvas, width);
+
+    const attempts = [
+        {
+            index: startIndex + 1,
+            name: `${startIndex + 1}번째 전처리중`,
+            detail: `${width}px + 원본`,
+            resolution: width,
+            preprocess: "original",
+            canvas: padCanvas(cloneCanvas(resized), 6)
+        },
+        {
+            index: startIndex + 2,
+            name: `${startIndex + 2}번째 전처리중`,
+            detail: `${width}px + grayscale`,
+            resolution: width,
+            preprocess: "grayscale",
+            canvas: padCanvas(applyGrayscale(cloneCanvas(resized)), 6)
+        },
+        {
+            index: startIndex + 3,
+            name: `${startIndex + 3}번째 전처리중`,
+            detail: `${width}px + contrast`,
+            resolution: width,
+            preprocess: "contrast",
+            canvas: padCanvas(applyContrast(applyGrayscale(cloneCanvas(resized)), 1.85), 6)
+        },
+        {
+            index: startIndex + 4,
+            name: `${startIndex + 4}번째 전처리중`,
+            detail: `${width}px + threshold`,
+            resolution: width,
+            preprocess: "threshold",
+            canvas: padCanvas(applyThreshold(applyGrayscale(cloneCanvas(resized)), 145), 6)
         }
-    }
+    ];
 
     return attempts;
+}
+
+function releaseAttemptCanvases(attempts) {
+    for (const attempt of attempts) {
+        if (attempt && attempt.canvas) {
+            attempt.canvas.width = 1;
+            attempt.canvas.height = 1;
+            attempt.canvas = null;
+        }
+    }
 }
 
 async function createFreshCameraWorker() {
@@ -1999,59 +1970,13 @@ async function translateMnToKo(text) {
     }
 }
 
-function updateAttemptProgress(text) {
-    setCameraProgress(text);
-    cameraRecognizedText.textContent = text;
-    cameraRecognizedText.classList.add("placeholder");
-}
-
-function normalizeOcrVote(text) {
-    return cleanupOcrText(text || "")
-        .toLowerCase()
-        .replace(/[.,!?;:'"`~^*_+=|\\/()[\]{}<>]/g, "")
-        .replace(/[\u2018\u2019\u201C\u201D]/g, "")
-        .replace(/0/g, "о")
-        .replace(/5/g, "s")
-        .replace(/1/g, "l")
-        .replace(/\s+/g, " ")
-        .trim();
-}
-
-function isMeaningfulOcrText(text) {
-    const cleaned = cleanupOcrText(text || "");
-    if (!cleaned) return false;
-    if (cleaned.length < 2) return false;
-
-    const compact = cleaned.replace(/\s/g, "");
-    if (compact.length < 2) return false;
-
-    const usefulChars = compact.match(/[\u0400-\u04FFA-Za-z0-9]/g) || [];
-    return usefulChars.length >= 2;
-}
-
-function buildSecondaryCanvasFromPrimary(primaryResult) {
-    const resized = resizeCanvas(makeBaseCropCanvas(), primaryResult.resolution || 960);
-    const upscaled = upscaleCanvas(cloneCanvas(resized), 2.1);
-    const gray = applyGrayscale(upscaled);
-    const strongContrast = applyContrast(gray, 2.35);
-    const thresholded = applyThreshold(strongContrast, 140);
-
-    return padCanvas(thresholded, 8);
-}
-
-/* =========================
-   ver18.7 OCR 핵심 교체 2
-   ========================= */
-async function runSingleOcrAttempt(attempt, runId, abortToken) {
-    let worker = null;
+async function runSingleOcrAttempt(worker, attempt, runId, abortToken, timeoutMs = OCR_ATTEMPT_TIMEOUT_MS) {
     try {
-        worker = await createFreshCameraWorker();
-
         if (runId !== currentRecognitionRunId || abortToken !== cameraAbortToken) {
             return { aborted: true };
         }
 
-        const result = await recognizeWithTimeout(worker, attempt.canvas, OCR_ATTEMPT_TIMEOUT_MS);
+        const result = await recognizeWithTimeout(worker, attempt.canvas, timeoutMs);
 
         if (runId !== currentRecognitionRunId || abortToken !== cameraAbortToken) {
             return { aborted: true };
@@ -2086,14 +2011,20 @@ async function runSingleOcrAttempt(attempt, runId, abortToken) {
             resolution: attempt?.resolution,
             preprocess: attempt?.preprocess
         };
-    } finally {
-        await safeTerminateWorker(worker);
     }
 }
 
-/* =========================
-   ver18.7 OCR 핵심 교체 3
-   ========================= */
+function buildSecondaryCanvasFromPrimary() {
+    const base = makeBaseCropCanvas();
+    const resized = resizeCanvas(base, 960);
+    const upscaled = upscaleCanvas(cloneCanvas(resized), 1.8);
+    const gray = applyGrayscale(upscaled);
+    const strongContrast = applyContrast(gray, 2.15);
+    const thresholded = applyThreshold(strongContrast, 142);
+
+    return padCanvas(thresholded, 8);
+}
+
 async function startRecognitionFlow() {
     if (!cameraShotTaken || !rangeVisible || cameraOcrRunning) return;
 
@@ -2108,48 +2039,90 @@ async function startRecognitionFlow() {
     ocrBox.style.pointerEvents = "none";
 
     hideFullscreenCamera();
-    setCameraText("1번째 전처리중", "번역 대기 중", true, true);
+    setCameraText("OCR 엔진 준비중", "번역 대기 중", true, true);
+    setCameraProgress("OCR 엔진 준비중");
+
+    let bestPrimary = null;
 
     try {
-        const attempts = buildAttemptCanvases();
-        const collectedResults = [];
-        let bestPrimary = null;
+        const baseCanvas = makeBaseCropCanvas();
 
-        for (let i = 0; i < attempts.length; i++) {
-            if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
-
-            const attempt = attempts[i];
-            updateAttemptProgress(attempt.name);
-            await sleep(OCR_ATTEMPT_SLEEP_MS);
-
-            const result = await runSingleOcrAttempt(attempt, runId, localAbortToken);
-            if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
-            if (result?.aborted) return;
-
-            if (!result.ok) {
-                setCameraProgress(`OCR 실패 (${attempt.detail})`);
-                console.error("OCR 실패 (특정 시도명)", attempt.name, attempt.detail, result.error);
-                continue;
-            }
-
-            if (!isMeaningfulOcrText(result.cleaned)) {
-                setCameraProgress(`OCR 실패 (${attempt.detail})`);
-                console.error("의미 없는 OCR 결과", attempt.name, attempt.detail, result.cleaned);
-                continue;
-            }
-
-            collectedResults.push({
-                ...result,
-                attemptIndex: i + 1
-            });
-
-            if (!bestPrimary || result.score > bestPrimary.score) {
-                bestPrimary = {
-                    ...result,
-                    attemptIndex: i + 1
-                };
-            }
+        if (baseCanvas.width < 2 || baseCanvas.height < 2) {
+            throw new Error("CROP_TOO_SMALL");
         }
+
+        const resolutions = [960, 780, 640];
+        let startIndex = 0;
+
+        for (const width of resolutions) {
+            if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
+
+            setCameraProgress(`${width}px 세트 준비중`);
+            let worker = null;
+            const attempts = createAttemptsForResolution(baseCanvas, width, startIndex);
+
+            try {
+                worker = await createFreshCameraWorker();
+
+                if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) {
+                    await safeTerminateWorker(worker);
+                    releaseAttemptCanvases(attempts);
+                    return;
+                }
+
+                for (const attempt of attempts) {
+                    if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) {
+                        await safeTerminateWorker(worker);
+                        releaseAttemptCanvases(attempts);
+                        return;
+                    }
+
+                    updateAttemptProgress(attempt.name);
+                    await sleep(OCR_ATTEMPT_SLEEP_MS);
+
+                    const result = await runSingleOcrAttempt(worker, attempt, runId, localAbortToken, OCR_ATTEMPT_TIMEOUT_MS);
+                    if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) {
+                        await safeTerminateWorker(worker);
+                        releaseAttemptCanvases(attempts);
+                        return;
+                    }
+                    if (result?.aborted) {
+                        await safeTerminateWorker(worker);
+                        releaseAttemptCanvases(attempts);
+                        return;
+                    }
+
+                    if (!result.ok) {
+                        setCameraProgress(`OCR 실패 (${attempt.detail})`);
+                        continue;
+                    }
+
+                    if (!isMeaningfulOcrText(result.cleaned)) {
+                        setCameraProgress(`OCR 실패 (${attempt.detail})`);
+                        console.error("의미 없는 OCR 결과", attempt.name, attempt.detail, result.cleaned);
+                        continue;
+                    }
+
+                    if (!bestPrimary || result.score > bestPrimary.score) {
+                        bestPrimary = {
+                            ...result,
+                            attemptIndex: attempt.index
+                        };
+                    }
+                }
+            } catch (workerError) {
+                console.error("해상도 세트 처리 실패", width, workerError);
+            } finally {
+                await safeTerminateWorker(worker);
+                releaseAttemptCanvases(attempts);
+            }
+
+            startIndex += 4;
+            await sleep(OCR_ATTEMPT_SLEEP_MS);
+        }
+
+        baseCanvas.width = 1;
+        baseCanvas.height = 1;
 
         if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
 
@@ -2167,45 +2140,74 @@ async function startRecognitionFlow() {
 
         cameraRecognizedText.textContent = bestPrimary.cleaned;
         cameraRecognizedText.classList.remove("placeholder");
-        setCameraProgress(`결과 비교중\n선택: ${bestPrimary.detail}`);
+        setCameraProgress(`1차 OCR 완료\n선택: ${bestPrimary.detail}\n점수: ${bestPrimary.score}`);
 
-        const secondaryAttempt = {
-            name: "2차 OCR 보정중",
-            detail: `${bestPrimary.resolution}px + upscale + strong contrast`,
-            canvas: buildSecondaryCanvasFromPrimary(bestPrimary),
-            resolution: bestPrimary.resolution,
-            preprocess: "secondary_refine"
-        };
-
-        cameraRecognizedText.textContent = "2차 OCR 보정중";
-        cameraRecognizedText.classList.add("placeholder");
         await sleep(OCR_ATTEMPT_SLEEP_MS);
 
-        const secondaryResult = await runSingleOcrAttempt(secondaryAttempt, runId, localAbortToken);
-        if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
-        if (secondaryResult?.aborted) return;
+        setCameraProgress("2차 OCR 보정중");
+        cameraRecognizedText.textContent = "2차 OCR 보정중";
+        cameraRecognizedText.classList.add("placeholder");
 
+        let secondaryWorker = null;
+        let secondaryCanvas = null;
         let finalText = bestPrimary.cleaned;
         let refineMessage = "2차 보정 유지";
 
-        if (secondaryResult.ok && isMeaningfulOcrText(secondaryResult.cleaned)) {
-            if (secondaryResult.score > bestPrimary.score) {
-                finalText = secondaryResult.cleaned;
-                refineMessage = "2차 보정 성공";
+        try {
+            secondaryCanvas = buildSecondaryCanvasFromPrimary();
+            secondaryWorker = await createFreshCameraWorker();
+
+            const secondaryAttempt = {
+                name: "2차 OCR 보정중",
+                detail: "2차 보정용",
+                resolution: 960,
+                preprocess: "secondary_refine",
+                canvas: secondaryCanvas
+            };
+
+            const secondaryResult = await runSingleOcrAttempt(
+                secondaryWorker,
+                secondaryAttempt,
+                runId,
+                localAbortToken,
+                OCR_SECONDARY_TIMEOUT_MS
+            );
+
+            if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) {
+                return;
+            }
+
+            if (secondaryResult.ok && isMeaningfulOcrText(secondaryResult.cleaned)) {
+                if (secondaryResult.score > bestPrimary.score) {
+                    finalText = secondaryResult.cleaned;
+                    refineMessage = "2차 보정 성공";
+                    setCameraProgress(
+                        `2차 보정 성공\n1차 점수: ${bestPrimary.score}\n2차 점수: ${secondaryResult.score}`
+                    );
+                } else {
+                    refineMessage = "2차 보정 유지";
+                    setCameraProgress(
+                        `2차 보정 유지\n1차 점수: ${bestPrimary.score}\n2차 점수: ${secondaryResult.score}`
+                    );
+                }
             } else {
                 refineMessage = "2차 보정 유지";
+                setCameraProgress(`2차 보정 유지\n2차 OCR 실패`);
+                console.error("2차 OCR 실패", secondaryResult?.error || secondaryResult);
             }
-        } else {
-            console.error("2차 OCR 실패", secondaryResult?.error || secondaryResult);
-            refineMessage = "2차 보정 유지";
+        } finally {
+            await safeTerminateWorker(secondaryWorker);
+            if (secondaryCanvas) {
+                secondaryCanvas.width = 1;
+                secondaryCanvas.height = 1;
+                secondaryCanvas = null;
+            }
         }
+
+        if (runId !== currentRecognitionRunId || localAbortToken !== cameraAbortToken) return;
 
         cameraRecognizedText.textContent = finalText;
         cameraRecognizedText.classList.remove("placeholder");
-        setCameraProgress(
-            `${refineMessage}\n1차 선택: ${bestPrimary.detail}\n1차 점수: ${bestPrimary.score}` +
-            (secondaryResult?.ok ? `\n2차 점수: ${secondaryResult.score}` : "")
-        );
 
         cameraTranslatedText.textContent = "번역중";
         cameraTranslatedText.classList.add("placeholder");
