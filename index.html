@@ -2123,16 +2123,6 @@ input:focus { border-color: #2d8cff; }
 <div id="toast">복사됨!</div>
 
 <script>
-/*
-ver20.3.5
-- 기준 버전: 20.3.2
-- 목표: 기능 변경 최소화, 내부 코드 파트별 분류/정리
-- 원칙: 동작 로직은 최대한 유지하고 섹션 주석과 구획만 추가
-*/
-/* =========================
-   [1] 데이터 / 전역 상태
-   ========================= */
-
 const glossaryBook = [
     ["안녕하세요", "센배노"],
     ["안녕히가세요", "바얄테이"],
@@ -2281,8 +2271,6 @@ const glossaryBook = [
     ["무지개", "솔롱고"]
 ];
 
-
-/* 전역 상태값 */
 let historyList = [];
 let appMode = "main";
 let studyIndex = 0;
@@ -2351,8 +2339,6 @@ let currentSpeakingId = null;
 let currentUtterance = null;
 let cachedVoices = [];
 
-
-/* DOM 참조 */
 const cameraVideo = document.getElementById("cameraVideo");
 const cameraSnapshot = document.getElementById("cameraSnapshot");
 const cameraPlaceholder = document.getElementById("cameraPlaceholder");
@@ -2430,11 +2416,6 @@ updateGuideSizeUi();
 /* =========================
    공통 유틸
 ========================= */
-
-/* =========================
-   [2] 공통 유틸 / 문자열 매칭
-   ========================= */
-
 function normalizeForMatch(text) {
     return String(text)
         .toLowerCase()
@@ -2666,11 +2647,6 @@ function romanToKorean(text) {
     return mergeKoreanPronunciation(raw);
 }
 
-
-/* =========================
-   [3] 일반 번역 / 결과 표시
-   ========================= */
-
 function startLoadingMessage() {
     const loadingText = document.getElementById("loadingText");
     const button = document.getElementById("translateBtn");
@@ -2760,11 +2736,6 @@ async function run() {
 /* =========================
    TTS 영역 (위계방식)
 ========================= */
-
-/* =========================
-   [4] TTS / 히스토리 / 복사
-   ========================= */
-
 function refreshVoices() {
     if (!("speechSynthesis" in window)) return [];
     cachedVoices = window.speechSynthesis.getVoices() || [];
@@ -3088,11 +3059,6 @@ function renderHistory() {
     });
 }
 
-
-/* =========================
-   [5] 스크린 모드
-   ========================= */
-
 function applyScreenTextSize() {
     document.getElementById("screenText").style.fontSize = screenFontSize + "px";
 }
@@ -3192,11 +3158,6 @@ function closeGearMenu() {
 }
 
 
-
-
-/* =========================
-   [6] 음성 모드
-   ========================= */
 
 function clearVoiceMobileRestartTimer() {
     if (voiceMobileRestartTimer) {
@@ -3309,7 +3270,7 @@ async function ensureVoicePermission() {
 
     if (IS_MOBILE) {
         voicePermissionGranted = true;
-        if (voicePermissionNote) voicePermissionNote.textContent = "권한 팝업이 뜨면 허용해 주세요";
+        if (voicePermissionNote) voicePermissionNote.textContent = "모바일에서는 버튼으로 시작하고 버튼으로 종료합니다";
         return true;
     }
 
@@ -3520,18 +3481,14 @@ async function startVoiceRecognitionEngine() {
 
         if (IS_MOBILE) {
             voiceRecognition = null;
-            if (voiceMobileSessionDesired) {
-                setVoiceProgress("녹음 중...");
-                clearVoiceMobileRestartTimer();
-                voiceMobileRestartTimer = setTimeout(() => {
-                    if (voiceMobileSessionDesired && !voiceListening) {
-                        startVoiceRecognitionEngine();
-                    }
-                }, 180);
+            voiceMobileSessionDesired = false;
+            setVoiceCaptionState("readyAgain");
+            if (errorCode === "no-speech") {
+                setVoiceProgress("음성이 들리지 않았습니다. 다시 버튼을 눌러 주세요");
             } else {
-                setVoiceCaptionState("readyAgain");
-                setVoiceProgress("녹음기 버튼을 눌러 녹음을 다시 시작하세요");
+                setVoiceProgress("녹음이 종료되었습니다. 다시 버튼을 눌러 주세요");
             }
+            if (voicePermissionNote) voicePermissionNote.textContent = "모바일에서는 버튼으로 시작하고 버튼으로 종료합니다";
             return;
         }
 
@@ -3554,21 +3511,10 @@ async function startVoiceRecognitionEngine() {
 
         if (IS_MOBILE) {
             voiceRecognition = null;
+            voiceMobileSessionDesired = false;
             resetVoiceAura();
-
-            if (voiceMobileSessionDesired) {
-                setVoiceProgress("녹음 중...");
-                clearVoiceMobileRestartTimer();
-                voiceMobileRestartTimer = setTimeout(() => {
-                    if (voiceMobileSessionDesired && !voiceListening) {
-                        startVoiceRecognitionEngine();
-                    }
-                }, 180);
-                return;
-            }
-
             setVoiceCaptionState("readyAgain");
-            if (voicePermissionNote) voicePermissionNote.textContent = "녹음기 버튼을 눌러 녹음을 다시 시작하세요";
+            if (voicePermissionNote) voicePermissionNote.textContent = "모바일에서는 버튼으로 시작하고 버튼으로 종료합니다";
             await finalizeVoiceTranslation(finalText, wasManualStop);
             return;
         }
@@ -3596,7 +3542,7 @@ async function startVoiceRecognitionEngine() {
 }
 
 async function toggleVoiceRecognition() {
-    if (voiceListening || voiceMobileSessionDesired) {
+    if (voiceListening) {
         requestVoiceRecognitionStop(true);
         return;
     }
@@ -3615,12 +3561,12 @@ async function toggleVoiceRecognition() {
     clearVoiceMobileRestartTimer();
     voiceFinalTranscript = "";
     voiceManualStopRequested = false;
-    voiceMobileSessionDesired = IS_MOBILE;
+    voiceMobileSessionDesired = false;
     setVoiceText("듣는 중입니다...", "번역 결과가 여기에 표시됩니다", true, true);
     setVoiceCaptionState("listening");
     setVoiceProgress(IS_MOBILE ? "녹음 중..." : "몽골어를 듣는 중입니다");
     if (voicePermissionNote) {
-        voicePermissionNote.textContent = IS_MOBILE ? "모바일에서는 녹음기 버튼으로 종료합니다" : "마이크가 켜져 있습니다";
+        voicePermissionNote.textContent = IS_MOBILE ? "모바일에서는 버튼으로 시작하고 버튼으로 종료합니다" : "마이크가 켜져 있습니다";
     }
     playVoiceBurst("start");
 
@@ -3641,11 +3587,6 @@ async function toggleVoiceRecognition() {
         voiceMobileSessionDesired = false;
     }
 }
-
-
-/* =========================
-   [7] 학습 모드
-   ========================= */
 
 function setStudyOrder(mode) {
     if (typeof mode === "string") {
@@ -3883,11 +3824,6 @@ function moveStudyCard(direction) {
 }
 
 
-
-/* =========================
-   [8] 앱 모드 전환 / 공통 네비게이션
-   ========================= */
-
 function switchAppMode(mode) {
     appMode = mode;
 
@@ -3916,7 +3852,7 @@ function switchAppMode(mode) {
         if (!voiceRecognizedText.textContent.trim()) {
             setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
         }
-        setVoiceCaptionState((voiceListening || voiceMobileSessionDesired) ? "listening" : "idle");
+        setVoiceCaptionState(voiceListening ? "listening" : "idle");
         if (IS_MOBILE) {
             if (voicePermissionNote) voicePermissionNote.textContent = "모바일에서는 버튼으로 시작하고 버튼으로 종료합니다";
             if (!voiceProgress.textContent) setVoiceProgress("녹음기 버튼을 눌러 시작하세요");
@@ -3954,11 +3890,6 @@ function toggleMode(forceMode) {
 /* =========================
    카메라 OCR 영역
 ========================= */
-
-/* =========================
-   [9] 카메라 UI / 가이드 박스
-   ========================= */
-
 function setCameraText(recognized, translated, recognizedPlaceholder = false, translatedPlaceholder = false) {
     cameraRecognizedText.textContent = recognized;
     cameraTranslatedText.textContent = translated;
@@ -4363,11 +4294,6 @@ function getBoxRectRelativeToImage() {
 }
 
 
-
-/* =========================
-   [10] OCR 텍스트 정리 / 전처리 유틸
-   ========================= */
-
 function replaceLatinLookalikesToCyrillic(text) {
     const map = {
         "A":"А","a":"а","B":"В","C":"С","c":"с","E":"Е","e":"е","H":"Н","K":"К","k":"к","M":"М",
@@ -4604,11 +4530,6 @@ function updateAttemptProgress(text) {
     cameraRecognizedText.classList.add("placeholder");
 }
 
-
-/* =========================
-   [11] OCR 시도 생성 / 워커 실행
-   ========================= */
-
 function createAttemptsForResolution(baseCanvas, width, startIndex) {
     const resized = resizeCanvas(baseCanvas, width);
 
@@ -4807,11 +4728,6 @@ function buildSecondaryCanvasFromPrimary() {
 
     return padCanvas(thresholded, 8);
 }
-
-
-/* =========================
-   [12] OCR 전체 실행 흐름
-   ========================= */
 
 async function startRecognitionFlow() {
     if (!cameraShotTaken || !rangeVisible || cameraOcrRunning) return;
@@ -5014,11 +4930,6 @@ let startLeft = 0;
 let startTop = 0;
 let startWidth = 0;
 let startHeight = 0;
-
-
-/* =========================
-   [13] 가이드 박스 포인터 조작
-   ========================= */
 
 function pxToNumber(value) {
     return parseFloat(String(value).replace("px", "")) || 0;
