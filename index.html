@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>🇲🇳 신나는 몽골어 번역기 ver20.3.7</title>
+<title>🇲🇳 신나는 몽골어 번역기 ver20.3.7.1.1</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 * { box-sizing: border-box; }
@@ -912,6 +912,25 @@ input:focus { border-color: #2d8cff; }
     font-weight: 700;
     box-shadow: 0 10px 26px rgba(45,140,255,0.28);
     cursor: pointer;
+}
+.voice-mic-btn.ios-disabled {
+    position: relative;
+    border: 6px solid #e24a4a;
+    box-shadow: 0 10px 26px rgba(226,74,74,0.26);
+    cursor: not-allowed;
+    overflow: hidden;
+}
+.voice-mic-btn.ios-disabled::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 168px;
+    height: 10px;
+    background: #e24a4a;
+    border-radius: 999px;
+    transform: translate(-50%, -50%) rotate(-35deg);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.18);
 }
 .voice-mic-btn.listening {
     animation: voicePulse 1s ease-in-out infinite;
@@ -1823,7 +1842,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver20.3.7</div>
+<div class="version">ver20.3.7.1</div>
 
 <div id="mainPage" class="page">
     <h1>🇲🇳 신나는 몽골어 번역기</h1>
@@ -2124,7 +2143,7 @@ input:focus { border-color: #2d8cff; }
 
 <script>
 /*
-ver20.3.7
+ver20.3.7.1
 - 기준 버전: 20.3.2
 - 목표: 기능 변경 최소화, 내부 코드 파트별 분류/정리
 - 원칙: 동작 로직은 최대한 유지하고 섹션 주석과 구획만 추가
@@ -2378,6 +2397,10 @@ const cameraTranslatedText = document.getElementById("cameraTranslatedText");
 const voiceMicBtn = document.getElementById("voiceMicBtn");
 const voiceBtnCaption = document.getElementById("voiceBtnCaption");
 const voicePermissionNote = document.getElementById("voicePermissionNote");
+if (IS_IOS) {
+    document.body.classList.add("ios-voice-disabled");
+}
+
 const voiceProgress = document.getElementById("voiceProgress");
 const voiceRecognizedText = document.getElementById("voiceRecognizedText");
 const voiceTranslatedText = document.getElementById("voiceTranslatedText");
@@ -3621,6 +3644,15 @@ async function startVoiceRecognitionEngine() {
 }
 
 async function toggleVoiceRecognition() {
+    if (IS_IOS) {
+        setVoiceCaptionState("idle");
+        setVoiceProgress("iOS 기기에서는 음성 기능을 사용할 수 없습니다");
+        setVoiceText("iOS 기기에서는 사용 불가능합니다", "다른 기기나 다른 방식의 음성 입력을 사용해 주세요", true, true);
+        if (voicePermissionNote) voicePermissionNote.textContent = "iOS 기기에서는 사용 불가능합니다.";
+        showToast("iOS 음성 사용 불가");
+        return;
+    }
+
     if (voiceListening) {
         requestVoiceRecognitionStop(true);
         return;
@@ -5162,6 +5194,7 @@ setStudyQuizCount(10);
 resetStudyMode();
 setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
 setVoiceCaptionState("idle");
+applyIOSVoiceDisabledUI();
 switchAppMode("main");
 </script>
 </body>
