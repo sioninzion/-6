@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>🇲🇳 신나는 몽골어 번역기 ver20.3.4</title>
+<title>🇲🇳 신나는 몽골어 번역기 ver20.3.2</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 * { box-sizing: border-box; }
@@ -1823,7 +1823,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver20.3.4</div>
+<div class="version">ver20.3.2</div>
 
 <div id="mainPage" class="page">
     <h1>🇲🇳 신나는 몽골어 번역기</h1>
@@ -1889,7 +1889,7 @@ input:focus { border-color: #2d8cff; }
             </div>
         </div>
         <div class="voice-btn-caption" id="voiceBtnCaption">녹음기 버튼을 눌러 시작하세요</div>
-        <div class="voice-permission-note" id="voicePermissionNote">모바일은 버튼으로 바로 시작합니다</div>
+        <div class="voice-permission-note" id="voicePermissionNote">음성 모드 진입 시 마이크 권한을 확인합니다</div>
 
         <div class="voice-progress" id="voiceProgress"></div>
 
@@ -2123,6 +2123,16 @@ input:focus { border-color: #2d8cff; }
 <div id="toast">복사됨!</div>
 
 <script>
+/*
+ver20.3.5
+- 기준 버전: 20.3.2
+- 목표: 기능 변경 최소화, 내부 코드 파트별 분류/정리
+- 원칙: 동작 로직은 최대한 유지하고 섹션 주석과 구획만 추가
+*/
+/* =========================
+   [1] 데이터 / 전역 상태
+   ========================= */
+
 const glossaryBook = [
     ["안녕하세요", "센배노"],
     ["안녕히가세요", "바얄테이"],
@@ -2271,6 +2281,8 @@ const glossaryBook = [
     ["무지개", "솔롱고"]
 ];
 
+
+/* 전역 상태값 */
 let historyList = [];
 let appMode = "main";
 let studyIndex = 0;
@@ -2293,8 +2305,6 @@ let voiceFinalTranscript = "";
 let voiceManualStopRequested = false;
 let voicePermissionRequested = false;
 let voicePermissionGranted = false;
-let voicePermissionStream = null;
-let voiceStopAfterSession = false;
 let voiceMeterStream = null;
 let voiceAudioContext = null;
 let voiceAnalyser = null;
@@ -2302,6 +2312,8 @@ let voiceMeterData = null;
 let voiceMeterAnimationFrame = null;
 let voiceStatusDotInterval = null;
 let voiceSilenceStartAt = null;
+let voiceMobileSessionDesired = false;
+let voiceMobileRestartTimer = null;
 const VOICE_SILENCE_THRESHOLD = 0.022;
 const VOICE_AUTO_STOP_MS = 4000;
 let screenFontSize = 48;
@@ -2339,6 +2351,8 @@ let currentSpeakingId = null;
 let currentUtterance = null;
 let cachedVoices = [];
 
+
+/* DOM 참조 */
 const cameraVideo = document.getElementById("cameraVideo");
 const cameraSnapshot = document.getElementById("cameraSnapshot");
 const cameraPlaceholder = document.getElementById("cameraPlaceholder");
@@ -2416,6 +2430,11 @@ updateGuideSizeUi();
 /* =========================
    공통 유틸
 ========================= */
+
+/* =========================
+   [2] 공통 유틸 / 문자열 매칭
+   ========================= */
+
 function normalizeForMatch(text) {
     return String(text)
         .toLowerCase()
@@ -2647,6 +2666,11 @@ function romanToKorean(text) {
     return mergeKoreanPronunciation(raw);
 }
 
+
+/* =========================
+   [3] 일반 번역 / 결과 표시
+   ========================= */
+
 function startLoadingMessage() {
     const loadingText = document.getElementById("loadingText");
     const button = document.getElementById("translateBtn");
@@ -2736,6 +2760,11 @@ async function run() {
 /* =========================
    TTS 영역 (위계방식)
 ========================= */
+
+/* =========================
+   [4] TTS / 히스토리 / 복사
+   ========================= */
+
 function refreshVoices() {
     if (!("speechSynthesis" in window)) return [];
     cachedVoices = window.speechSynthesis.getVoices() || [];
@@ -3059,6 +3088,11 @@ function renderHistory() {
     });
 }
 
+
+/* =========================
+   [5] 스크린 모드
+   ========================= */
+
 function applyScreenTextSize() {
     document.getElementById("screenText").style.fontSize = screenFontSize + "px";
 }
@@ -3136,7 +3170,7 @@ function clearAllData() {
     studyIndex = 0;
     setStudyOrder("default");
     stopVoiceRecognition(true);
-    if (voicePermissionNote) voicePermissionNote.textContent = "모바일은 버튼으로 바로 시작합니다";
+    if (voicePermissionNote) voicePermissionNote.textContent = "음성 모드 진입 시 마이크 권한을 확인합니다";
     showToast("초기화됨!");
 }
 
@@ -3158,49 +3192,18 @@ function closeGearMenu() {
 }
 
 
-function switchAppMode(mode) {
-    appMode = mode;
 
-    const mainPageEl = document.getElementById("mainPage");
-    const cameraPageEl = document.getElementById("cameraPage");
-    const voicePageEl = document.getElementById("voicePage");
-    const studyPageEl = document.getElementById("studyPage");
-    const navButtons = document.querySelectorAll(".bottom-nav-btn");
 
-    if (!mainPageEl || !cameraPageEl || !voicePageEl || !studyPageEl) return;
+/* =========================
+   [6] 음성 모드
+   ========================= */
 
-    if (mode !== "voice" && voiceListening) {
-        stopVoiceRecognition(false);
-    }
-
-    if (mode !== "camera") {
-        if (document.getElementById("cameraFullscreen")?.classList.contains("active")) {
-            resetCameraUi();
-        } else {
-            hideFullscreenCamera();
-        }
-    }
-
-    mainPageEl.style.display = mode === "text" ? "block" : "none";
-    cameraPageEl.style.display = mode === "main" ? "block" : "none";
-    voicePageEl.style.display = mode === "voice" ? "block" : "none";
-    studyPageEl.style.display = mode === "study" ? "block" : "none";
-
-    navButtons.forEach(btn => {
-        btn.classList.toggle("active", btn.dataset.mode === mode);
-    });
-
-    closeCopyPanels();
-    closeGearMenu();
-
-    if (mode === "voice" && voicePermissionNote) {
-        voicePermissionNote.textContent = IS_MOBILE
-            ? "모바일은 버튼을 누르면 바로 시작합니다"
-            : (voicePermissionGranted ? "마이크 사용 준비가 되었습니다" : "브라우저에서 마이크 권한을 허용해 주세요");
+function clearVoiceMobileRestartTimer() {
+    if (voiceMobileRestartTimer) {
+        clearTimeout(voiceMobileRestartTimer);
+        voiceMobileRestartTimer = null;
     }
 }
-
-
 
 function resetVoiceAura() {
     if (voiceAura) {
@@ -3220,6 +3223,8 @@ function playVoiceBurst(type) {
 }
 
 function stopVoiceMeter() {
+    clearVoiceMobileRestartTimer();
+
     if (voiceMeterAnimationFrame) {
         cancelAnimationFrame(voiceMeterAnimationFrame);
         voiceMeterAnimationFrame = null;
@@ -3304,6 +3309,7 @@ async function ensureVoicePermission() {
 
     if (IS_MOBILE) {
         voicePermissionGranted = true;
+        if (voicePermissionNote) voicePermissionNote.textContent = "권한 팝업이 뜨면 허용해 주세요";
         return true;
     }
 
@@ -3312,17 +3318,11 @@ async function ensureVoicePermission() {
         return false;
     }
 
-    if (voicePermissionStream) {
-        voicePermissionGranted = true;
-        return true;
-    }
-
     try {
-        voicePermissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        tempStream.getTracks().forEach(track => track.stop());
         voicePermissionGranted = true;
-        if (voicePermissionNote) {
-            voicePermissionNote.textContent = "마이크 사용 준비가 되었습니다";
-        }
+        if (voicePermissionNote) voicePermissionNote.textContent = "마이크 사용 준비가 되었습니다";
         if (!voiceProgress.textContent) setVoiceProgress("마이크 권한이 확인되었습니다");
         return true;
     } catch (error) {
@@ -3386,7 +3386,7 @@ function createVoiceRecognition() {
     recognition.lang = "mn-MN";
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    recognition.continuous = !IS_MOBILE;
+    recognition.continuous = false;
     return recognition;
 }
 
@@ -3417,16 +3417,15 @@ async function finalizeVoiceTranslation(finalText, wasManualStop = false) {
 
 function stopVoiceRecognition(resetText = false) {
     voiceManualStopRequested = false;
-    voiceStopAfterSession = false;
+    voiceMobileSessionDesired = false;
     voiceSilenceStartAt = null;
+    clearVoiceMobileRestartTimer();
 
     if (voiceRecognition) {
         try { voiceRecognition.onend = null; } catch (e) {}
         try { voiceRecognition.onerror = null; } catch (e) {}
         try { voiceRecognition.onresult = null; } catch (e) {}
-        try { voiceRecognition.abort(); } catch (e) {
-            try { voiceRecognition.stop(); } catch (e2) {}
-        }
+        try { voiceRecognition.stop(); } catch (e) {}
         voiceRecognition = null;
     }
 
@@ -3444,7 +3443,7 @@ function stopVoiceRecognition(resetText = false) {
 function requestVoiceRecognitionStop(isManual = true) {
     if (!voiceRecognition || !voiceListening) return;
     voiceManualStopRequested = !!isManual;
-    voiceStopAfterSession = true;
+    voiceMobileSessionDesired = false;
     playVoiceBurst("stop");
     setVoiceCaptionState("stopped");
     setVoiceProgress(isManual ? "음성 듣기를 마치는 중입니다" : "조용한 상태가 이어져 녹음을 마칩니다");
@@ -3500,8 +3499,6 @@ async function startVoiceRecognitionEngine() {
 
     recognition.onerror = (event) => {
         const errorCode = event?.error || "";
-        console.error("voice recognition error:", errorCode);
-
         voiceListening = false;
         if (voiceMicBtn) voiceMicBtn.classList.remove("listening");
         if (!IS_MOBILE) stopVoiceMeter();
@@ -3509,11 +3506,7 @@ async function startVoiceRecognitionEngine() {
 
         if (errorCode === "not-allowed" || errorCode === "service-not-allowed") {
             voicePermissionGranted = false;
-            voiceStopAfterSession = false;
-            if (voicePermissionStream) {
-                try { voicePermissionStream.getTracks().forEach(track => track.stop()); } catch (e) {}
-                voicePermissionStream = null;
-            }
+            voiceMobileSessionDesired = false;
             if (voicePermissionNote) voicePermissionNote.textContent = "마이크 권한이 필요합니다";
             setVoiceCaptionState("readyAgain");
             setVoiceProgress("마이크 권한이 필요합니다");
@@ -3521,17 +3514,34 @@ async function startVoiceRecognitionEngine() {
             return;
         }
 
-        if (errorCode === "aborted") {
+        if (errorCode === "aborted" && voiceManualStopRequested) {
             return;
         }
 
-        voiceRecognition = null;
+        if (IS_MOBILE) {
+            voiceRecognition = null;
+            if (voiceMobileSessionDesired) {
+                setVoiceProgress("녹음 중...");
+                clearVoiceMobileRestartTimer();
+                voiceMobileRestartTimer = setTimeout(() => {
+                    if (voiceMobileSessionDesired && !voiceListening) {
+                        startVoiceRecognitionEngine();
+                    }
+                }, 180);
+            } else {
+                setVoiceCaptionState("readyAgain");
+                setVoiceProgress("녹음기 버튼을 눌러 녹음을 다시 시작하세요");
+            }
+            return;
+        }
+
         setVoiceCaptionState("readyAgain");
         if (errorCode === "no-speech") {
-            setVoiceProgress(IS_MOBILE ? "음성이 들리지 않았습니다. 다시 눌러 주세요" : "음성이 들리지 않았습니다");
+            setVoiceProgress("음성이 들리지 않았습니다");
         } else {
             setVoiceProgress("음성 인식 중 오류가 발생했습니다");
         }
+        voiceRecognition = null;
     };
 
     recognition.onend = async () => {
@@ -3540,26 +3550,33 @@ async function startVoiceRecognitionEngine() {
 
         voiceListening = false;
         voiceManualStopRequested = false;
-        voiceRecognition = null;
         if (voiceMicBtn) voiceMicBtn.classList.remove("listening");
 
         if (IS_MOBILE) {
+            voiceRecognition = null;
             resetVoiceAura();
-        } else {
-            stopVoiceMeter();
-        }
 
-        setVoiceCaptionState("readyAgain");
-        if (voicePermissionNote) {
-            voicePermissionNote.textContent = IS_MOBILE ? "버튼을 눌러 다시 녹음할 수 있습니다" : "마이크 사용 준비가 되었습니다";
-        }
+            if (voiceMobileSessionDesired) {
+                setVoiceProgress("녹음 중...");
+                clearVoiceMobileRestartTimer();
+                voiceMobileRestartTimer = setTimeout(() => {
+                    if (voiceMobileSessionDesired && !voiceListening) {
+                        startVoiceRecognitionEngine();
+                    }
+                }, 180);
+                return;
+            }
 
-        if (!finalText && !voiceStopAfterSession && IS_MOBILE) {
-            setVoiceProgress("모바일 환경에서는 버튼을 누른 동안만 안정적으로 들릴 수 있습니다. 다시 시도해 주세요");
+            setVoiceCaptionState("readyAgain");
+            if (voicePermissionNote) voicePermissionNote.textContent = "녹음기 버튼을 눌러 녹음을 다시 시작하세요";
+            await finalizeVoiceTranslation(finalText, wasManualStop);
             return;
         }
 
-        voiceStopAfterSession = false;
+        stopVoiceMeter();
+        setVoiceCaptionState("readyAgain");
+        if (voicePermissionNote) voicePermissionNote.textContent = "마이크 사용 준비가 되었습니다";
+        voiceRecognition = null;
         await finalizeVoiceTranslation(finalText, wasManualStop);
     };
 
@@ -3579,7 +3596,7 @@ async function startVoiceRecognitionEngine() {
 }
 
 async function toggleVoiceRecognition() {
-    if (voiceListening) {
+    if (voiceListening || voiceMobileSessionDesired) {
         requestVoiceRecognitionStop(true);
         return;
     }
@@ -3592,19 +3609,18 @@ async function toggleVoiceRecognition() {
         return;
     }
 
-    if (!IS_MOBILE) {
-        const permissionOk = await ensureVoicePermission();
-        if (!permissionOk) return;
-    }
+    const permissionOk = await ensureVoicePermission();
+    if (!permissionOk) return;
 
+    clearVoiceMobileRestartTimer();
     voiceFinalTranscript = "";
     voiceManualStopRequested = false;
-    voiceStopAfterSession = false;
+    voiceMobileSessionDesired = IS_MOBILE;
     setVoiceText("듣는 중입니다...", "번역 결과가 여기에 표시됩니다", true, true);
     setVoiceCaptionState("listening");
-    setVoiceProgress(IS_MOBILE ? "모바일 녹음 시작 중..." : "몽골어를 듣는 중입니다");
+    setVoiceProgress(IS_MOBILE ? "녹음 중..." : "몽골어를 듣는 중입니다");
     if (voicePermissionNote) {
-        voicePermissionNote.textContent = IS_MOBILE ? "다시 누르면 녹음을 종료합니다" : "마이크가 켜져 있습니다";
+        voicePermissionNote.textContent = IS_MOBILE ? "모바일에서는 녹음기 버튼으로 종료합니다" : "마이크가 켜져 있습니다";
     }
     playVoiceBurst("start");
 
@@ -3622,13 +3638,327 @@ async function toggleVoiceRecognition() {
 
     const started = await startVoiceRecognitionEngine();
     if (!started) {
-        voiceStopAfterSession = false;
+        voiceMobileSessionDesired = false;
+    }
+}
+
+
+/* =========================
+   [7] 학습 모드
+   ========================= */
+
+function setStudyOrder(mode) {
+    if (typeof mode === "string") {
+        studyOrderMode = mode === "shuffle" ? "shuffle" : "default";
+        if (studyShuffleToggle) studyShuffleToggle.checked = studyOrderMode === "shuffle";
+    } else {
+        studyOrderMode = studyShuffleToggle?.checked ? "shuffle" : "default";
+    }
+}
+
+function setStudyMode(mode) {
+    studyMode = mode === "quiz" ? "quiz" : "flashcard";
+    if (studyFlashcardModeBtn) studyFlashcardModeBtn.classList.toggle("active", studyMode === "flashcard");
+    if (studyQuizModeBtn) studyQuizModeBtn.classList.toggle("active", studyMode === "quiz");
+    if (studyFlashcardOptions) studyFlashcardOptions.classList.toggle("hidden", studyMode !== "flashcard");
+    if (studyQuizOptions) studyQuizOptions.classList.toggle("hidden", studyMode !== "quiz");
+}
+
+function setStudyQuizCount(count) {
+    studyQuizCount = count;
+    document.querySelectorAll(".study-quiz-count-btn").forEach(btn => {
+        btn.classList.toggle("active", Number(btn.dataset.quizCount) === count);
+    });
+}
+
+function shuffleStudyDeck(source) {
+    const deck = [...source];
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
+}
+
+function showStudyWarning(message) {
+    if (!studyStartWarning) return;
+    clearTimeout(studyWarningTimer);
+    studyStartWarning.textContent = message;
+    studyStartWarning.classList.add("show");
+    studyWarningTimer = setTimeout(() => {
+        studyStartWarning.classList.remove("show");
+    }, 1500);
+}
+
+function normalizedPronLength(text) {
+    return String(text || "").replace(/\s+/g, "").replace(/[^\p{L}\p{N}가-힣]/gu, "").length;
+}
+
+function getQuizWrongChoices(correctPron) {
+    const correctLen = normalizedPronLength(correctPron);
+    const candidates = glossaryBook
+        .filter(([, pron]) => pron !== correctPron)
+        .map(([word, pron]) => ({
+            word, pron, diff: Math.abs(normalizedPronLength(pron) - correctLen)
+        }))
+        .sort((a, b) => a.diff - b.diff);
+
+    let pool = candidates.filter(item => item.diff <= 1).slice(0, 20);
+    if (pool.length < 20) {
+        pool = candidates.slice(0, 20);
+    }
+    const shuffled = shuffleStudyDeck(pool);
+    return shuffled.slice(0, 3).map(item => item.pron);
+}
+
+function buildStudyQuizQuestions() {
+    const base = shuffleStudyDeck(glossaryBook).slice(0, Math.min(studyQuizCount, glossaryBook.length));
+    return base.map(([word, pron]) => {
+        const options = shuffleStudyDeck([pron, ...getQuizWrongChoices(pron)]);
+        return { word, correct: pron, options };
+    });
+}
+
+function renderStudyCard() {
+    const total = studyDeck.length;
+    if (!total) return;
+    if (studyIndex < 0) studyIndex = total - 1;
+    if (studyIndex >= total) studyIndex = 0;
+
+    const current = studyDeck[studyIndex];
+    studyWordText.textContent = current[0];
+    studyPronText.textContent = current[1];
+    studyProgressText.textContent = `${studyIndex + 1} / ${total}`;
+    studyPronVisible = false;
+    studyPronNote.classList.add("hidden");
+}
+
+function renderStudyQuizQuestion() {
+    const total = studyQuizQuestions.length;
+    if (!total || studyQuizIndex >= total) {
+        showStudyQuizResult();
+        return;
+    }
+
+    const current = studyQuizQuestions[studyQuizIndex];
+    studyQuizAnswered = false;
+    studyQuizWordText.textContent = current.word;
+    studyQuizProgressLabel.textContent = `${studyQuizIndex + 1} / ${total}`;
+    studyQuizScoreText.textContent = `${total}문제 중 ${studyQuizCorrect}문제 맞음`;
+    studyQuizFeedback.textContent = "";
+    if (studyQuizNextBtn) studyQuizNextBtn.disabled = true;
+    if (studyQuizProgressFill) {
+        const percent = total ? ((studyQuizIndex) / total) * 100 : 0;
+        studyQuizProgressFill.style.width = `${percent}%`;
+    }
+
+    studyQuizOptionsWrap.innerHTML = "";
+    current.options.forEach((option, index) => {
+        const btn = document.createElement("button");
+        btn.className = "study-quiz-option-btn";
+        btn.textContent = option;
+        btn.onclick = () => answerStudyQuiz(index);
+        studyQuizOptionsWrap.appendChild(btn);
+    });
+}
+
+function answerStudyQuiz(index) {
+    if (studyQuizAnswered) return;
+    const current = studyQuizQuestions[studyQuizIndex];
+    if (!current) return;
+
+    studyQuizAnswered = true;
+    const buttons = [...studyQuizOptionsWrap.querySelectorAll(".study-quiz-option-btn")];
+    const selectedBtn = buttons[index];
+    const correctIndex = current.options.findIndex(option => option === current.correct);
+
+    if (index === correctIndex) {
+        studyQuizCorrect += 1;
+        selectedBtn.classList.add("correct");
+        studyQuizFeedback.textContent = "정답입니다!";
+    } else {
+        selectedBtn.classList.add("wrong");
+        if (buttons[correctIndex]) buttons[correctIndex].classList.add("reveal-correct");
+        studyQuizFeedback.textContent = `정답: ${current.correct}`;
+    }
+
+    buttons.forEach(btn => btn.disabled = true);
+    studyQuizScoreText.textContent = `${studyQuizQuestions.length}문제 중 ${studyQuizCorrect}문제 맞음`;
+    if (studyQuizNextBtn) studyQuizNextBtn.disabled = false;
+    if (studyQuizProgressFill) {
+        const percent = ((studyQuizIndex + 1) / studyQuizQuestions.length) * 100;
+        studyQuizProgressFill.style.width = `${percent}%`;
+    }
+}
+
+function goToNextQuizQuestion() {
+    if (!studyQuizAnswered) return;
+    studyQuizIndex += 1;
+    if (studyQuizIndex >= studyQuizQuestions.length) {
+        showStudyQuizResult();
+        return;
+    }
+    renderStudyQuizQuestion();
+}
+
+function showStudyQuizResult() {
+    studyFlashcardView.classList.remove("active");
+    studyQuizView.classList.remove("active");
+    studyQuizResult.classList.add("active");
+    studyQuizResultScore.textContent = `${studyQuizQuestions.length}문제 중 ${studyQuizCorrect}문제 맞았습니다`;
+    if (studyQuizProgressFill) studyQuizProgressFill.style.width = "100%";
+}
+
+function runStudyStartRippleThen(callback) {
+    clearTimeout(studyStartTransitionTimer);
+    if (studyStartBtn) {
+        studyStartBtn.classList.remove("ripple-run");
+        void studyStartBtn.offsetWidth;
+        studyStartBtn.classList.add("ripple-run");
+    }
+    studyStartTransitionTimer = setTimeout(() => {
+        if (studyStartBtn) studyStartBtn.classList.remove("ripple-run");
+        callback();
+    }, 520);
+}
+
+function startStudyMode() {
+    if (!studyMode) {
+        showStudyWarning("모드를 선택해 주세요.");
+        return;
+    }
+
+    runStudyStartRippleThen(() => {
+        studyStarted = true;
+        studyStartWrap.style.display = "none";
+        studyCardArea.style.display = "block";
+
+        if (studyMode === "flashcard") {
+            studyOrderMode = studyShuffleToggle?.checked ? "shuffle" : "default";
+            studyDeck = studyOrderMode === "shuffle" ? shuffleStudyDeck(glossaryBook) : [...glossaryBook];
+            studyIndex = 0;
+            studyFlashcardView.classList.add("active");
+            studyQuizView.classList.remove("active");
+            studyQuizResult.classList.remove("active");
+            renderStudyCard();
+        } else {
+            studyQuizQuestions = buildStudyQuizQuestions();
+            studyQuizIndex = 0;
+            studyQuizCorrect = 0;
+            studyFlashcardView.classList.remove("active");
+            studyQuizView.classList.add("active");
+            studyQuizResult.classList.remove("active");
+            renderStudyQuizQuestion();
+        }
+    });
+}
+
+function resetStudyMode() {
+    studyStarted = false;
+    studyIndex = 0;
+    studyPronVisible = false;
+    studyQuizQuestions = [];
+    studyQuizIndex = 0;
+    studyQuizCorrect = 0;
+    studyQuizAnswered = false;
+    studyStartWrap.style.display = "flex";
+    studyCardArea.style.display = "none";
+    studyPronNote.classList.add("hidden");
+    studyFlashcardView.classList.add("active");
+    studyQuizView.classList.remove("active");
+    studyQuizResult.classList.remove("active");
+    if (studyQuizProgressFill) studyQuizProgressFill.style.width = "0%";
+}
+
+function toggleStudyPronunciation() {
+    if (!studyStarted || studyMode !== "flashcard") return;
+    studyPronVisible = !studyPronVisible;
+    studyPronNote.classList.toggle("hidden", !studyPronVisible);
+}
+
+function moveStudyCard(direction) {
+    if (!studyStarted || studyMode !== "flashcard") return;
+    studyIndex += direction;
+    renderStudyCard();
+}
+
+
+
+/* =========================
+   [8] 앱 모드 전환 / 공통 네비게이션
+   ========================= */
+
+function switchAppMode(mode) {
+    appMode = mode;
+
+    document.getElementById("mainPage").style.display = mode === "text" ? "block" : "none";
+    document.getElementById("cameraPage").style.display = mode === "main" ? "block" : "none";
+    document.getElementById("voicePage").style.display = mode === "voice" ? "block" : "none";
+    document.getElementById("studyPage").style.display = mode === "study" ? "block" : "none";
+
+    document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.mode === mode);
+    });
+
+    if (mode !== "main") {
+        stopCameraStream();
+        hideFullscreenCamera();
+        if (cameraOcrRunning) abortCameraRecognition(true);
+    }
+
+    if (mode !== "voice") {
+        stopVoiceRecognition();
+        setVoiceProgress("");
+        if (voicePermissionNote) voicePermissionNote.textContent = IS_MOBILE ? "모바일에서는 버튼으로 시작하고 버튼으로 종료합니다" : "음성 모드 진입 시 마이크 권한을 확인합니다";
+    }
+
+    if (mode === "voice") {
+        if (!voiceRecognizedText.textContent.trim()) {
+            setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
+        }
+        setVoiceCaptionState((voiceListening || voiceMobileSessionDesired) ? "listening" : "idle");
+        if (IS_MOBILE) {
+            if (voicePermissionNote) voicePermissionNote.textContent = "모바일에서는 버튼으로 시작하고 버튼으로 종료합니다";
+            if (!voiceProgress.textContent) setVoiceProgress("녹음기 버튼을 눌러 시작하세요");
+        } else if (!voicePermissionRequested) {
+            setVoiceProgress("마이크 권한을 확인하는 중입니다");
+            ensureVoicePermission();
+        } else if (voicePermissionGranted) {
+            if (voicePermissionNote) voicePermissionNote.textContent = "마이크 사용 준비가 되었습니다";
+        }
+    }
+}
+
+
+function handleModeSwitch() {
+    if (cameraOcrRunning) {
+        abortCameraRecognition(true);
+        return;
+    }
+    switchAppMode(appMode === "main" ? "text" : "main");
+}
+
+function toggleMode(forceMode) {
+    if (forceMode === "camera") {
+        switchAppMode("main");
+        isCameraMode = true;
+    } else if (forceMode === "main") {
+        switchAppMode("text");
+        isCameraMode = false;
+    } else {
+        switchAppMode(appMode === "main" ? "text" : "main");
+        isCameraMode = appMode === "main";
     }
 }
 
 /* =========================
    카메라 OCR 영역
 ========================= */
+
+/* =========================
+   [9] 카메라 UI / 가이드 박스
+   ========================= */
+
 function setCameraText(recognized, translated, recognizedPlaceholder = false, translatedPlaceholder = false) {
     cameraRecognizedText.textContent = recognized;
     cameraTranslatedText.textContent = translated;
@@ -4033,6 +4363,11 @@ function getBoxRectRelativeToImage() {
 }
 
 
+
+/* =========================
+   [10] OCR 텍스트 정리 / 전처리 유틸
+   ========================= */
+
 function replaceLatinLookalikesToCyrillic(text) {
     const map = {
         "A":"А","a":"а","B":"В","C":"С","c":"с","E":"Е","e":"е","H":"Н","K":"К","k":"к","M":"М",
@@ -4269,6 +4604,11 @@ function updateAttemptProgress(text) {
     cameraRecognizedText.classList.add("placeholder");
 }
 
+
+/* =========================
+   [11] OCR 시도 생성 / 워커 실행
+   ========================= */
+
 function createAttemptsForResolution(baseCanvas, width, startIndex) {
     const resized = resizeCanvas(baseCanvas, width);
 
@@ -4467,6 +4807,11 @@ function buildSecondaryCanvasFromPrimary() {
 
     return padCanvas(thresholded, 8);
 }
+
+
+/* =========================
+   [12] OCR 전체 실행 흐름
+   ========================= */
 
 async function startRecognitionFlow() {
     if (!cameraShotTaken || !rangeVisible || cameraOcrRunning) return;
@@ -4669,6 +5014,11 @@ let startLeft = 0;
 let startTop = 0;
 let startWidth = 0;
 let startHeight = 0;
+
+
+/* =========================
+   [13] 가이드 박스 포인터 조작
+   ========================= */
 
 function pxToNumber(value) {
     return parseFloat(String(value).replace("px", "")) || 0;
