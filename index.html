@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>🇲🇳 신나는 몽골어 번역기 ver20.0</title>
+<title>🇲🇳 신나는 몽골어 번역기 ver20.1</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 * { box-sizing: border-box; }
@@ -46,7 +46,7 @@ body {
 }
 .mode-switch:active { transform: scale(0.96); }
 
-.page { width: 100%; display: none; min-height: 100vh; padding-bottom: 108px; }
+.page { width: 100%; display: none; min-height: 100vh; padding: 26px 0 108px; }
 #mainPage { display: block; }
 #cameraPage { display: none; }
 #voicePage { display: none; }
@@ -854,7 +854,52 @@ input:focus { border-color: #2d8cff; }
 .voice-mic-wrap {
     display: flex;
     justify-content: center;
-    margin: 8px 0 14px;
+    margin: 12px 0 14px;
+}
+.voice-aura-wrap {
+    position: relative;
+    width: 176px;
+    height: 176px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.voice-aura {
+    position: absolute;
+    width: 128px;
+    height: 128px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(125,220,255,0.42) 0%, rgba(125,220,255,0.22) 45%, rgba(125,220,255,0.00) 74%);
+    opacity: 0;
+    transform: scale(0.78);
+    transition: transform 0.10s linear, opacity 0.10s linear;
+    pointer-events: none;
+}
+.voice-aura.active {
+    opacity: 1;
+}
+.voice-burst {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 999px;
+    opacity: 0;
+    transform: scale(0.4);
+    pointer-events: none;
+}
+.voice-burst.start-burst {
+    animation: voiceStartBurst 0.46s ease-out forwards;
+}
+.voice-burst.stop-burst {
+    animation: voiceStopBurst 0.46s ease-out forwards;
+}
+@keyframes voiceStartBurst {
+    0% { opacity: 0.56; transform: scale(0.42); background: rgba(56, 214, 110, 0.48); }
+    100% { opacity: 0; transform: scale(2.15); background: rgba(56, 214, 110, 0); }
+}
+@keyframes voiceStopBurst {
+    0% { opacity: 0.52; transform: scale(0.42); background: rgba(244, 78, 78, 0.46); }
+    100% { opacity: 0; transform: scale(2.15); background: rgba(244, 78, 78, 0); }
 }
 .voice-mic-btn {
     width: 124px;
@@ -881,6 +926,12 @@ input:focus { border-color: #2d8cff; }
     font-size: 14px;
     color: #5f6875;
     font-weight: 700;
+    text-align: center;
+}
+.voice-permission-note {
+    margin: 2px auto 0;
+    font-size: 12px;
+    color: #6f7a89;
     text-align: center;
 }
 .voice-progress {
@@ -1294,6 +1345,10 @@ input:focus { border-color: #2d8cff; }
         font-size: 13px;
     }
 
+    .page {
+        padding: 38px 0 102px;
+    }
+
     .bottom-nav {
         padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
     }
@@ -1328,10 +1383,31 @@ input:focus { border-color: #2d8cff; }
         margin-bottom: 12px;
     }
 
+    .voice-aura-wrap {
+        width: 162px;
+        height: 162px;
+    }
+
+    .voice-aura {
+        width: 118px;
+        height: 118px;
+    }
+
     .voice-mic-btn {
         width: 112px;
         height: 112px;
         font-size: 46px;
+    }
+
+    .study-start-panel {
+        width: min(100%, 360px);
+        gap: 14px;
+    }
+
+    .study-order-btn {
+        padding: 13px 14px;
+        font-size: 14px;
+        border-radius: 16px;
     }
 
     .study-start-wrap {
@@ -1372,7 +1448,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver20.0</div>
+<div class="version">ver20.1</div>
 
 <div id="mainPage" class="page">
     <h1>🇲🇳 신나는 몽골어 번역기</h1>
@@ -1430,9 +1506,15 @@ input:focus { border-color: #2d8cff; }
         </div>
 
         <div class="voice-mic-wrap">
-            <button class="voice-mic-btn" id="voiceMicBtn" onclick="toggleVoiceRecognition()">🎙️</button>
+            <div class="voice-aura-wrap" id="voiceAuraWrap">
+                <div class="voice-burst" id="voiceStartBurst"></div>
+                <div class="voice-burst" id="voiceStopBurst"></div>
+                <div class="voice-aura" id="voiceAura"></div>
+                <button class="voice-mic-btn" id="voiceMicBtn" onclick="toggleVoiceRecognition()">🎙️</button>
+            </div>
         </div>
         <div class="voice-btn-caption" id="voiceBtnCaption">녹음기 버튼을 눌러 시작하세요</div>
+        <div class="voice-permission-note" id="voicePermissionNote">음성 모드 진입 시 마이크 권한을 확인합니다</div>
 
         <div class="voice-progress" id="voiceProgress"></div>
 
@@ -1460,7 +1542,13 @@ input:focus { border-color: #2d8cff; }
         </div>
 
         <div class="study-start-wrap" id="studyStartWrap">
-            <button class="study-start-btn" id="studyStartBtn" onclick="startStudyMode()">시작</button>
+            <div class="study-start-panel">
+                <div class="study-order-select" id="studyOrderSelect">
+                    <button class="study-order-btn active" data-study-order="default" onclick="setStudyOrder('default')">기존 순서대로 보기</button>
+                    <button class="study-order-btn" data-study-order="shuffle" onclick="setStudyOrder('shuffle')">셔플해서 보기</button>
+                </div>
+                <button class="study-start-btn" id="studyStartBtn" onclick="startStudyMode()">시작</button>
+            </div>
         </div>
 
         <div class="study-card-area" id="studyCardArea">
@@ -1742,9 +1830,19 @@ let appMode = "main";
 let studyIndex = 0;
 let studyStarted = false;
 let studyPronVisible = false;
+let studyOrderMode = "default";
+let studyDeck = [...glossaryBook];
 let voiceRecognition = null;
 let voiceListening = false;
 let voiceFinalTranscript = "";
+let voiceManualStopRequested = false;
+let voicePermissionRequested = false;
+let voicePermissionGranted = false;
+let voiceMeterStream = null;
+let voiceAudioContext = null;
+let voiceAnalyser = null;
+let voiceMeterData = null;
+let voiceMeterAnimationFrame = null;
 let screenFontSize = 48;
 const screenFontMin = 28;
 const screenFontMax = 120;
@@ -1802,9 +1900,13 @@ const cameraRecognizedText = document.getElementById("cameraRecognizedText");
 const cameraTranslatedText = document.getElementById("cameraTranslatedText");
 const voiceMicBtn = document.getElementById("voiceMicBtn");
 const voiceBtnCaption = document.getElementById("voiceBtnCaption");
+const voicePermissionNote = document.getElementById("voicePermissionNote");
 const voiceProgress = document.getElementById("voiceProgress");
 const voiceRecognizedText = document.getElementById("voiceRecognizedText");
 const voiceTranslatedText = document.getElementById("voiceTranslatedText");
+const voiceAura = document.getElementById("voiceAura");
+const voiceStartBurst = document.getElementById("voiceStartBurst");
+const voiceStopBurst = document.getElementById("voiceStopBurst");
 const studyStartWrap = document.getElementById("studyStartWrap");
 const studyCardArea = document.getElementById("studyCardArea");
 const studyPronNote = document.getElementById("studyPronNote");
@@ -2547,6 +2649,14 @@ function clearAllData() {
     closeScreen();
     stopTts();
     resetCameraUi();
+    studyStarted = false;
+    studyStartWrap.style.display = "flex";
+    studyCardArea.style.display = "none";
+    studyDeck = [...glossaryBook];
+    studyIndex = 0;
+    setStudyOrder("default");
+    stopVoiceRecognition(true);
+    if (voicePermissionNote) voicePermissionNote.textContent = "음성 모드 진입 시 마이크 권한을 확인합니다";
     showToast("초기화됨!");
 }
 
@@ -2568,17 +2678,139 @@ function closeGearMenu() {
 }
 
 
+function resetVoiceAura() {
+    if (voiceAura) {
+        voiceAura.classList.remove("active");
+        voiceAura.style.transform = "scale(0.78)";
+        voiceAura.style.opacity = "0";
+    }
+}
+
+function playVoiceBurst(type) {
+    const target = type === "start" ? voiceStartBurst : voiceStopBurst;
+    if (!target) return;
+    target.classList.remove("start-burst", "stop-burst");
+    void target.offsetWidth;
+    target.classList.add(type === "start" ? "start-burst" : "stop-burst");
+}
+
+function stopVoiceMeter() {
+    if (voiceMeterAnimationFrame) {
+        cancelAnimationFrame(voiceMeterAnimationFrame);
+        voiceMeterAnimationFrame = null;
+    }
+    if (voiceMeterStream) {
+        voiceMeterStream.getTracks().forEach(track => track.stop());
+        voiceMeterStream = null;
+    }
+    if (voiceAudioContext) {
+        try { voiceAudioContext.close(); } catch (e) {}
+        voiceAudioContext = null;
+    }
+    voiceAnalyser = null;
+    voiceMeterData = null;
+    resetVoiceAura();
+}
+
+async function startVoiceMeter() {
+    stopVoiceMeter();
+    if (!navigator.mediaDevices?.getUserMedia) return false;
+
+    try {
+        voiceMeterStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+            voicePermissionGranted = true;
+            return true;
+        }
+
+        voiceAudioContext = new AudioContextClass();
+        const source = voiceAudioContext.createMediaStreamSource(voiceMeterStream);
+        voiceAnalyser = voiceAudioContext.createAnalyser();
+        voiceAnalyser.fftSize = 1024;
+        source.connect(voiceAnalyser);
+        voiceMeterData = new Uint8Array(voiceAnalyser.fftSize);
+        voicePermissionGranted = true;
+
+        const renderMeter = () => {
+            if (!voiceListening || !voiceAnalyser || !voiceMeterData) return;
+            voiceAnalyser.getByteTimeDomainData(voiceMeterData);
+
+            let sum = 0;
+            for (let i = 0; i < voiceMeterData.length; i++) {
+                const normalized = (voiceMeterData[i] - 128) / 128;
+                sum += normalized * normalized;
+            }
+            const rms = Math.sqrt(sum / voiceMeterData.length);
+            const strength = Math.min(1, rms * 6.2);
+            if (voiceAura) {
+                voiceAura.classList.add("active");
+                voiceAura.style.opacity = String(0.18 + strength * 0.72);
+                voiceAura.style.transform = `scale(${0.88 + strength * 1.12})`;
+            }
+            voiceMeterAnimationFrame = requestAnimationFrame(renderMeter);
+        };
+        renderMeter();
+        return true;
+    } catch (error) {
+        console.error(error);
+        voicePermissionRequested = true;
+        return false;
+    }
+}
+
+async function ensureVoicePermission() {
+    voicePermissionRequested = true;
+    if (!navigator.mediaDevices?.getUserMedia) {
+        if (voicePermissionNote) voicePermissionNote.textContent = "이 브라우저는 마이크 권한 요청을 지원하지 않습니다";
+        return false;
+    }
+
+    try {
+        const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        tempStream.getTracks().forEach(track => track.stop());
+        voicePermissionGranted = true;
+        if (voicePermissionNote) voicePermissionNote.textContent = "마이크 사용 준비가 되었습니다";
+        if (!voiceProgress.textContent) setVoiceProgress("마이크 권한이 확인되었습니다");
+        return true;
+    } catch (error) {
+        console.error(error);
+        voicePermissionGranted = false;
+        if (voicePermissionNote) voicePermissionNote.textContent = "마이크 권한이 필요합니다";
+        setVoiceProgress("브라우저에서 마이크 권한을 허용해 주세요");
+        return false;
+    }
+}
+
 function stopVoiceRecognition(resetText = false) {
+    voiceManualStopRequested = false;
     if (voiceRecognition) {
         try { voiceRecognition.onend = null; } catch (e) {}
+        try { voiceRecognition.onerror = null; } catch (e) {}
+        try { voiceRecognition.onresult = null; } catch (e) {}
         try { voiceRecognition.stop(); } catch (e) {}
+        voiceRecognition = null;
     }
     voiceListening = false;
+    stopVoiceMeter();
     if (voiceMicBtn) voiceMicBtn.classList.remove("listening");
     if (voiceBtnCaption) voiceBtnCaption.textContent = "녹음기 버튼을 눌러 시작하세요";
     if (resetText) {
         setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
         setVoiceProgress("");
+    }
+}
+
+function requestVoiceRecognitionStop() {
+    if (!voiceRecognition || !voiceListening) return;
+    voiceManualStopRequested = true;
+    playVoiceBurst("stop");
+    setVoiceProgress("음성 듣기를 마치는 중입니다");
+    try {
+        voiceRecognition.stop();
+    } catch (error) {
+        console.error(error);
+        stopVoiceRecognition(false);
     }
 }
 
@@ -2615,25 +2847,38 @@ function createVoiceRecognition() {
 
 async function toggleVoiceRecognition() {
     if (voiceListening) {
-        stopVoiceRecognition();
-        setVoiceProgress("음성 듣기를 중지했습니다");
+        requestVoiceRecognitionStop();
         return;
     }
 
     const recognition = createVoiceRecognition();
     if (!recognition) {
         setVoiceProgress("이 브라우저에서는 음성 인식이 지원되지 않습니다");
+        if (voicePermissionNote) voicePermissionNote.textContent = "음성 인식을 지원하는 브라우저가 필요합니다";
         showToast("음성 인식 미지원");
         return;
     }
 
+    const permissionOk = await ensureVoicePermission();
+    if (!permissionOk) return;
+
     voiceRecognition = recognition;
     voiceFinalTranscript = "";
+    voiceManualStopRequested = false;
     voiceListening = true;
     setVoiceText("듣는 중입니다...", "번역 결과가 여기에 표시됩니다", true, true);
     setVoiceProgress("몽골어를 듣는 중입니다");
     voiceMicBtn.classList.add("listening");
-    voiceBtnCaption.textContent = "듣는 중... 다시 누르면 중지";
+    voiceBtnCaption.textContent = "녹음 중... 다시 누르면 중지";
+    if (voicePermissionNote) voicePermissionNote.textContent = "마이크가 켜져 있습니다";
+    playVoiceBurst("start");
+    const meterStarted = await startVoiceMeter();
+    if (!meterStarted) {
+        setVoiceProgress("마이크 입력을 준비하지 못했습니다");
+        stopVoiceRecognition(false);
+        if (voicePermissionNote) voicePermissionNote.textContent = "브라우저에서 마이크 권한을 허용해 주세요";
+        return;
+    }
 
     recognition.onresult = (event) => {
         let interim = "";
@@ -2655,29 +2900,40 @@ async function toggleVoiceRecognition() {
     };
 
     recognition.onerror = (event) => {
+        const errorCode = event?.error || "";
         voiceListening = false;
+        stopVoiceMeter();
         voiceMicBtn.classList.remove("listening");
         voiceBtnCaption.textContent = "녹음기 버튼을 눌러 시작하세요";
 
-        const errorCode = event?.error || "";
         if (errorCode === "not-allowed" || errorCode === "service-not-allowed") {
+            voicePermissionGranted = false;
+            if (voicePermissionNote) voicePermissionNote.textContent = "마이크 권한이 필요합니다";
             setVoiceProgress("마이크 권한이 필요합니다");
         } else if (errorCode === "no-speech") {
             setVoiceProgress("음성이 들리지 않았습니다");
+        } else if (errorCode === "aborted" && voiceManualStopRequested) {
+            setVoiceProgress("음성을 정리하는 중입니다");
         } else {
             setVoiceProgress("음성 인식 중 오류가 발생했습니다");
         }
+        voiceRecognition = null;
     };
 
     recognition.onend = async () => {
-        const finalText = (voiceFinalTranscript || voiceRecognizedText.textContent || "").trim();
+        const finalText = (voiceFinalTranscript || "").trim();
+        const wasManualStop = voiceManualStopRequested;
         voiceListening = false;
+        voiceManualStopRequested = false;
+        stopVoiceMeter();
         voiceMicBtn.classList.remove("listening");
         voiceBtnCaption.textContent = "녹음기 버튼을 눌러 시작하세요";
+        if (voicePermissionNote) voicePermissionNote.textContent = "마이크 사용 준비가 되었습니다";
+        voiceRecognition = null;
 
-        if (!finalText || finalText === "듣는 중입니다..." || finalText === "음성 인식 결과가 여기에 표시됩니다") {
+        if (!finalText) {
             setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
-            if (!voiceProgress.textContent) setVoiceProgress("다시 시도해 주세요");
+            setVoiceProgress(wasManualStop ? "다시 시도해 주세요" : "음성이 들리지 않았습니다");
             return;
         }
 
@@ -2698,19 +2954,34 @@ async function toggleVoiceRecognition() {
     } catch (error) {
         console.error(error);
         setVoiceProgress("음성 인식을 시작하지 못했습니다");
-        voiceListening = false;
-        voiceMicBtn.classList.remove("listening");
-        voiceBtnCaption.textContent = "녹음기 버튼을 눌러 시작하세요";
+        stopVoiceRecognition(false);
+        if (voicePermissionNote) voicePermissionNote.textContent = "다시 시도해 주세요";
     }
 }
 
+function setStudyOrder(mode) {
+    studyOrderMode = mode === "shuffle" ? "shuffle" : "default";
+    document.querySelectorAll(".study-order-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.studyOrder === studyOrderMode);
+    });
+}
+
+function shuffleStudyDeck(source) {
+    const deck = [...source];
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
+}
+
 function renderStudyCard() {
-    const total = glossaryBook.length;
+    const total = studyDeck.length;
     if (!total) return;
     if (studyIndex < 0) studyIndex = total - 1;
     if (studyIndex >= total) studyIndex = 0;
 
-    const current = glossaryBook[studyIndex];
+    const current = studyDeck[studyIndex];
     studyWordText.textContent = current[0];
     studyPronText.textContent = current[1];
     studyProgressText.textContent = `${studyIndex + 1} / ${total}`;
@@ -2719,6 +2990,8 @@ function renderStudyCard() {
 }
 
 function startStudyMode() {
+    studyDeck = studyOrderMode === "shuffle" ? shuffleStudyDeck(glossaryBook) : [...glossaryBook];
+    studyIndex = 0;
     studyStarted = true;
     studyStartWrap.style.display = "none";
     studyCardArea.style.display = "block";
@@ -2758,10 +3031,19 @@ function switchAppMode(mode) {
     if (mode !== "voice") {
         stopVoiceRecognition();
         setVoiceProgress("");
+        if (voicePermissionNote) voicePermissionNote.textContent = "음성 모드 진입 시 마이크 권한을 확인합니다";
     }
 
-    if (mode === "voice" && voiceRecognizedText.textContent.trim() === "") {
-        setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
+    if (mode === "voice") {
+        if (!voiceRecognizedText.textContent.trim()) {
+            setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
+        }
+        if (!voicePermissionRequested) {
+            setVoiceProgress("마이크 권한을 확인하는 중입니다");
+            ensureVoicePermission();
+        } else if (voicePermissionGranted) {
+            if (voicePermissionNote) voicePermissionNote.textContent = "마이크 사용 준비가 되었습니다";
+        }
     }
 }
 
@@ -3935,118 +4217,5 @@ resetCameraUi();
 setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
 switchAppMode("main");
 </script>
-
-<!-- ===== ver20.1 ADDITIONS START ===== -->
-
-<style>
-/* voice aura */
-.voice-aura{
-    position:absolute;
-    width:160px;
-    height:160px;
-    border-radius:50%;
-    background:rgba(100,180,255,0.25);
-    filter:blur(20px);
-    transform:scale(1);
-    pointer-events:none;
-}
-
-/* impact */
-.voice-impact-start{animation:impactGreen 0.4s ease-out;}
-.voice-impact-stop{animation:impactRed 0.4s ease-out;}
-
-@keyframes impactGreen{
-0%{transform:scale(0.2);background:rgba(0,255,120,0.7);}
-100%{transform:scale(2.2);opacity:0;}
-}
-@keyframes impactRed{
-0%{transform:scale(0.2);background:rgba(255,60,60,0.7);}
-100%{transform:scale(2.2);opacity:0;}
-}
-
-/* apple switch */
-.switch{position:relative;width:50px;height:28px;}
-.switch input{display:none;}
-.slider{
-position:absolute;inset:0;background:#ccc;border-radius:999px;transition:0.3s;
-}
-.slider:before{
-content:"";position:absolute;width:22px;height:22px;left:3px;bottom:3px;
-background:white;border-radius:50%;transition:0.3s;
-}
-input:checked + .slider{background:#2d8cff;}
-input:checked + .slider:before{transform:translateX(22px);}
-</style>
-
-<script>
-// ===== REAL AUDIO REACTIVE AURA =====
-let audioCtx, analyser, dataArray, micStream;
-let auraEl;
-
-async function startAudioAura(btn){
-    try{
-        micStream = await navigator.mediaDevices.getUserMedia({audio:true});
-        audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-        const source = audioCtx.createMediaStreamSource(micStream);
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        const bufferLength = analyser.frequencyBinCount;
-        dataArray = new Uint8Array(bufferLength);
-        source.connect(analyser);
-
-        auraEl = document.createElement("div");
-        auraEl.className = "voice-aura";
-        btn.appendChild(auraEl);
-
-        function loop(){
-            if(!analyser) return;
-            analyser.getByteFrequencyData(dataArray);
-            let sum = 0;
-            for(let i=0;i<dataArray.length;i++) sum += dataArray[i];
-            let avg = sum / dataArray.length;
-            let scale = 1 + (avg / 128);
-            auraEl.style.transform = "scale("+scale+")";
-            requestAnimationFrame(loop);
-        }
-        loop();
-
-    }catch(e){
-        alert("마이크 권한 필요");
-    }
-}
-
-function stopAudioAura(){
-    if(auraEl) auraEl.remove();
-    if(micStream){
-        micStream.getTracks().forEach(t=>t.stop());
-    }
-    if(audioCtx) audioCtx.close();
-    analyser = null;
-}
-
-// ===== TOGGLE VOICE =====
-function toggleVoiceNew(){
-    const btn = document.getElementById("voiceMicBtn");
-    if(!window.voiceListening){
-        startAudioAura(btn);
-        createImpact(btn,"start");
-        window.voiceListening = true;
-    }else{
-        stopAudioAura();
-        createImpact(btn,"stop");
-        window.voiceListening = false;
-    }
-}
-
-function createImpact(btn,type){
-    const el = document.createElement("div");
-    el.className = type==="start" ? "voice-impact-start" : "voice-impact-stop";
-    btn.appendChild(el);
-    setTimeout(()=>el.remove(),400);
-}
-</script>
-
-<!-- ===== ver20.1 ADDITIONS END ===== -->
-
 </body>
 </html>
