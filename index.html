@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>🇲🇳 신나는 몽골어 번역기 ver20.2</title>
+<title>🇲🇳 신나는 몽골어 번역기 ver20.3.2</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 * { box-sizing: border-box; }
@@ -1823,7 +1823,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver20.2</div>
+<div class="version">ver20.3.2</div>
 
 <div id="mainPage" class="page">
     <h1>🇲🇳 신나는 몽골어 번역기</h1>
@@ -2300,6 +2300,8 @@ let voiceMeterData = null;
 let voiceMeterAnimationFrame = null;
 let voiceStatusDotInterval = null;
 let voiceSilenceStartAt = null;
+let voiceMobileSessionDesired = false;
+let voiceMobileRestartTimer = null;
 const VOICE_SILENCE_THRESHOLD = 0.022;
 const VOICE_AUTO_STOP_MS = 4000;
 let screenFontSize = 48;
@@ -3156,6 +3158,14 @@ function closeGearMenu() {
 }
 
 
+
+function clearVoiceMobileRestartTimer() {
+    if (voiceMobileRestartTimer) {
+        clearTimeout(voiceMobileRestartTimer);
+        voiceMobileRestartTimer = null;
+    }
+}
+
 function resetVoiceAura() {
     if (voiceAura) {
         voiceAura.classList.remove("active");
@@ -3165,6 +3175,7 @@ function resetVoiceAura() {
 }
 
 function playVoiceBurst(type) {
+    if (IS_MOBILE) return;
     const target = type === "start" ? voiceStartBurst : voiceStopBurst;
     if (!target) return;
     target.classList.remove("start-burst", "stop-burst");
@@ -3173,6 +3184,8 @@ function playVoiceBurst(type) {
 }
 
 function stopVoiceMeter() {
+    clearVoiceMobileRestartTimer();
+
     if (voiceMeterAnimationFrame) {
         cancelAnimationFrame(voiceMeterAnimationFrame);
         voiceMeterAnimationFrame = null;
@@ -3187,12 +3200,13 @@ function stopVoiceMeter() {
     }
     voiceAnalyser = null;
     voiceMeterData = null;
+    voiceSilenceStartAt = null;
     resetVoiceAura();
 }
 
 async function startVoiceMeter() {
     stopVoiceMeter();
-    voiceSilenceStartAt = null;
+    if (IS_MOBILE) return true;
     if (!navigator.mediaDevices?.getUserMedia) return false;
 
     try {
@@ -3229,16 +3243,12 @@ async function startVoiceMeter() {
                 voiceAura.style.transform = `scale(${0.96 + strength * 1.34})`;
             }
 
-            if (!IS_MOBILE) {
-                if (strength < VOICE_SILENCE_THRESHOLD) {
-                    if (!voiceSilenceStartAt) voiceSilenceStartAt = Date.now();
-                    if (Date.now() - voiceSilenceStartAt >= VOICE_AUTO_STOP_MS && voiceListening && voiceRecognition) {
-                        setVoiceProgress("조용한 상태가 이어져 녹음을 마칩니다");
-                        requestVoiceRecognitionStop(false);
-                        return;
-                    }
-                } else {
-                    voiceSilenceStartAt = null;
+            if (strength < VOICE_SILENCE_THRESHOLD) {
+                if (!voiceSilenceStartAt) voiceSilenceStartAt = Date.now();
+                if (Date.now() - voiceSilenceStartAt >= VOICE_AUTO_STOP_MS && voiceListening && voiceRecognition) {
+                    setVoiceProgress("조용한 상태가 이어져 녹음을 마칩니다");
+                    requestVoiceRecognitionStop(false);
+                    return;
                 }
             } else {
                 voiceSilenceStartAt = null;
@@ -3285,7 +3295,6 @@ async function ensureVoicePermission() {
     }
 }
 
-
 function stopVoiceCaptionDots() {
     clearInterval(voiceStatusDotInterval);
     voiceStatusDotInterval = null;
@@ -3308,40 +3317,6 @@ function setVoiceCaptionState(state) {
         voiceBtnCaption.textContent = "녹음 중지";
     } else if (state === "readyAgain") {
         voiceBtnCaption.textContent = "녹음기 버튼을 눌러 녹음을 다시 시작하세요";
-    }
-}
-
-function stopVoiceRecognition(resetText = false) {
-    voiceManualStopRequested = false;
-    voiceSilenceStartAt = null;
-    if (voiceRecognition) {
-        try { voiceRecognition.onend = null; } catch (e) {}
-        try { voiceRecognition.onerror = null; } catch (e) {}
-        try { voiceRecognition.onresult = null; } catch (e) {}
-        try { voiceRecognition.stop(); } catch (e) {}
-        voiceRecognition = null;
-    }
-    voiceListening = false;
-    stopVoiceMeter();
-    if (voiceMicBtn) voiceMicBtn.classList.remove("listening");
-    setVoiceCaptionState("idle");
-    if (resetText) {
-        setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
-        setVoiceProgress("");
-    }
-}
-
-function requestVoiceRecognitionStop(isManual = true) {
-    if (!voiceRecognition || !voiceListening) return;
-    voiceManualStopRequested = !!isManual;
-    playVoiceBurst("stop");
-    setVoiceCaptionState("stopped");
-    setVoiceProgress(isManual ? "음성 듣기를 마치는 중입니다" : "조용한 상태가 이어져 녹음을 마칩니다");
-    try {
-        voiceRecognition.stop();
-    } catch (error) {
-        console.error(error);
-        stopVoiceRecognition(false);
     }
 }
 
@@ -3372,18 +3347,223 @@ function createVoiceRecognition() {
     recognition.lang = "mn-MN";
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    recognition.continuous = IS_MOBILE ? true : false;
+    recognition.continuous = false;
     return recognition;
 }
 
-async function toggleVoiceRecognition() {
-    if (voiceListening) {
-        requestVoiceRecognitionStop();
+async function finalizeVoiceTranslation(finalText, wasManualStop = false) {
+    const cleaned = (finalText || "").trim();
+
+    if (!cleaned) {
+        setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
+        if (IS_MOBILE) {
+            setVoiceProgress(wasManualStop ? "음성이 기록되지 않았습니다. 다시 시도해 주세요" : "모바일 음성 인식이 잠시 멈췄습니다");
+        } else {
+            setVoiceProgress(wasManualStop ? "다시 시도해 주세요" : "음성이 들리지 않았거나 자동 종료되었습니다");
+        }
         return;
     }
 
+    try {
+        setVoiceProgress("번역 중입니다");
+        const translated = await translateMongolianToKorean(cleaned);
+        setVoiceText(cleaned, translated || "번역 결과가 비어 있습니다", false, !translated);
+        setVoiceProgress(translated ? "완료되었습니다" : "번역 결과를 받지 못했습니다");
+    } catch (error) {
+        console.error(error);
+        setVoiceText(cleaned, "번역 중 오류가 발생했습니다", false, true);
+        setVoiceProgress("번역 중 오류가 발생했습니다");
+    }
+}
+
+function stopVoiceRecognition(resetText = false) {
+    voiceManualStopRequested = false;
+    voiceMobileSessionDesired = false;
+    voiceSilenceStartAt = null;
+    clearVoiceMobileRestartTimer();
+
+    if (voiceRecognition) {
+        try { voiceRecognition.onend = null; } catch (e) {}
+        try { voiceRecognition.onerror = null; } catch (e) {}
+        try { voiceRecognition.onresult = null; } catch (e) {}
+        try { voiceRecognition.stop(); } catch (e) {}
+        voiceRecognition = null;
+    }
+
+    voiceListening = false;
+    stopVoiceMeter();
+    if (voiceMicBtn) voiceMicBtn.classList.remove("listening");
+    setVoiceCaptionState("idle");
+
+    if (resetText) {
+        setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
+        setVoiceProgress("");
+    }
+}
+
+function requestVoiceRecognitionStop(isManual = true) {
+    if (!voiceRecognition || !voiceListening) return;
+    voiceManualStopRequested = !!isManual;
+    voiceMobileSessionDesired = false;
+    playVoiceBurst("stop");
+    setVoiceCaptionState("stopped");
+    setVoiceProgress(isManual ? "음성 듣기를 마치는 중입니다" : "조용한 상태가 이어져 녹음을 마칩니다");
+    try {
+        voiceRecognition.stop();
+    } catch (error) {
+        console.error(error);
+        stopVoiceRecognition(false);
+    }
+}
+
+async function startVoiceRecognitionEngine() {
     const recognition = createVoiceRecognition();
     if (!recognition) {
+        setVoiceProgress("이 브라우저에서는 음성 인식이 지원되지 않습니다");
+        if (voicePermissionNote) voicePermissionNote.textContent = "음성 인식을 지원하는 브라우저가 필요합니다";
+        showToast("음성 인식 미지원");
+        return false;
+    }
+
+    voiceRecognition = recognition;
+    voiceListening = true;
+    voiceSilenceStartAt = null;
+    if (voiceMicBtn) voiceMicBtn.classList.add("listening");
+
+    recognition.onresult = (event) => {
+        let interim = "";
+        let finalText = voiceFinalTranscript;
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0]?.transcript?.trim() || "";
+            if (event.results[i].isFinal) {
+                finalText += (finalText ? " " : "") + transcript;
+            } else {
+                interim += (interim ? " " : "") + transcript;
+            }
+        }
+
+        voiceFinalTranscript = finalText.trim();
+        const displayText = (voiceFinalTranscript || interim || "").trim();
+
+        if (displayText) {
+            setVoiceText(
+                displayText,
+                voiceTranslatedText.textContent || "번역 결과가 여기에 표시됩니다",
+                false,
+                voiceTranslatedText.classList.contains("placeholder")
+            );
+        }
+
+        setVoiceProgress(interim ? "듣는 중..." : (IS_MOBILE ? "녹음 중..." : "음성을 정리하는 중입니다"));
+    };
+
+    recognition.onerror = (event) => {
+        const errorCode = event?.error || "";
+        voiceListening = false;
+        if (voiceMicBtn) voiceMicBtn.classList.remove("listening");
+        if (!IS_MOBILE) stopVoiceMeter();
+        else resetVoiceAura();
+
+        if (errorCode === "not-allowed" || errorCode === "service-not-allowed") {
+            voicePermissionGranted = false;
+            voiceMobileSessionDesired = false;
+            if (voicePermissionNote) voicePermissionNote.textContent = "마이크 권한이 필요합니다";
+            setVoiceCaptionState("readyAgain");
+            setVoiceProgress("마이크 권한이 필요합니다");
+            voiceRecognition = null;
+            return;
+        }
+
+        if (errorCode === "aborted" && voiceManualStopRequested) {
+            return;
+        }
+
+        if (IS_MOBILE) {
+            voiceRecognition = null;
+            if (voiceMobileSessionDesired) {
+                setVoiceProgress("녹음 중...");
+                clearVoiceMobileRestartTimer();
+                voiceMobileRestartTimer = setTimeout(() => {
+                    if (voiceMobileSessionDesired && !voiceListening) {
+                        startVoiceRecognitionEngine();
+                    }
+                }, 180);
+            } else {
+                setVoiceCaptionState("readyAgain");
+                setVoiceProgress("녹음기 버튼을 눌러 녹음을 다시 시작하세요");
+            }
+            return;
+        }
+
+        setVoiceCaptionState("readyAgain");
+        if (errorCode === "no-speech") {
+            setVoiceProgress("음성이 들리지 않았습니다");
+        } else {
+            setVoiceProgress("음성 인식 중 오류가 발생했습니다");
+        }
+        voiceRecognition = null;
+    };
+
+    recognition.onend = async () => {
+        const finalText = (voiceFinalTranscript || "").trim();
+        const wasManualStop = voiceManualStopRequested;
+
+        voiceListening = false;
+        voiceManualStopRequested = false;
+        if (voiceMicBtn) voiceMicBtn.classList.remove("listening");
+
+        if (IS_MOBILE) {
+            voiceRecognition = null;
+            resetVoiceAura();
+
+            if (voiceMobileSessionDesired) {
+                setVoiceProgress("녹음 중...");
+                clearVoiceMobileRestartTimer();
+                voiceMobileRestartTimer = setTimeout(() => {
+                    if (voiceMobileSessionDesired && !voiceListening) {
+                        startVoiceRecognitionEngine();
+                    }
+                }, 180);
+                return;
+            }
+
+            setVoiceCaptionState("readyAgain");
+            if (voicePermissionNote) voicePermissionNote.textContent = "녹음기 버튼을 눌러 녹음을 다시 시작하세요";
+            await finalizeVoiceTranslation(finalText, wasManualStop);
+            return;
+        }
+
+        stopVoiceMeter();
+        setVoiceCaptionState("readyAgain");
+        if (voicePermissionNote) voicePermissionNote.textContent = "마이크 사용 준비가 되었습니다";
+        voiceRecognition = null;
+        await finalizeVoiceTranslation(finalText, wasManualStop);
+    };
+
+    try {
+        recognition.start();
+        return true;
+    } catch (error) {
+        console.error(error);
+        voiceRecognition = null;
+        voiceListening = false;
+        if (voiceMicBtn) voiceMicBtn.classList.remove("listening");
+        setVoiceCaptionState("readyAgain");
+        setVoiceProgress("음성 인식을 시작하지 못했습니다");
+        if (voicePermissionNote) voicePermissionNote.textContent = "다시 시도해 주세요";
+        return false;
+    }
+}
+
+async function toggleVoiceRecognition() {
+    if (voiceListening || voiceMobileSessionDesired) {
+        requestVoiceRecognitionStop(true);
+        return;
+    }
+
+    const recognitionSupport = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!recognitionSupport) {
         setVoiceProgress("이 브라우저에서는 음성 인식이 지원되지 않습니다");
         if (voicePermissionNote) voicePermissionNote.textContent = "음성 인식을 지원하는 브라우저가 필요합니다";
         showToast("음성 인식 미지원");
@@ -3393,15 +3573,16 @@ async function toggleVoiceRecognition() {
     const permissionOk = await ensureVoicePermission();
     if (!permissionOk) return;
 
-    voiceRecognition = recognition;
+    clearVoiceMobileRestartTimer();
     voiceFinalTranscript = "";
     voiceManualStopRequested = false;
-    voiceListening = true;
+    voiceMobileSessionDesired = IS_MOBILE;
     setVoiceText("듣는 중입니다...", "번역 결과가 여기에 표시됩니다", true, true);
-    setVoiceProgress(IS_MOBILE ? "녹음 중... 다시 누르면 종료됩니다" : "몽골어를 듣는 중입니다");
-    voiceMicBtn.classList.add("listening");
     setVoiceCaptionState("listening");
-    if (voicePermissionNote) voicePermissionNote.textContent = IS_MOBILE ? "모바일에서는 녹음기 버튼으로 종료합니다" : "마이크가 켜져 있습니다";
+    setVoiceProgress(IS_MOBILE ? "녹음 중..." : "몽골어를 듣는 중입니다");
+    if (voicePermissionNote) {
+        voicePermissionNote.textContent = IS_MOBILE ? "모바일에서는 녹음기 버튼으로 종료합니다" : "마이크가 켜져 있습니다";
+    }
     playVoiceBurst("start");
 
     if (!IS_MOBILE) {
@@ -3416,85 +3597,11 @@ async function toggleVoiceRecognition() {
         resetVoiceAura();
     }
 
-    recognition.onresult = (event) => {
-        let interim = "";
-        let finalText = voiceFinalTranscript;
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0]?.transcript?.trim() || "";
-            if (event.results[i].isFinal) finalText += (finalText ? " " : "") + transcript;
-            else interim += (interim ? " " : "") + transcript;
-        }
-
-        voiceFinalTranscript = finalText.trim();
-        const displayText = (voiceFinalTranscript || interim || "").trim();
-
-        if (displayText) {
-            setVoiceText(displayText, voiceTranslatedText.textContent || "번역 결과가 여기에 표시됩니다", false, voiceTranslatedText.classList.contains("placeholder"));
-        }
-        setVoiceProgress(interim ? "듣는 중..." : (IS_MOBILE ? "녹음 중..." : "음성을 정리하는 중입니다"));
-    };
-
-    recognition.onerror = (event) => {
-        const errorCode = event?.error || "";
-        voiceListening = false;
-        stopVoiceMeter();
-        voiceMicBtn.classList.remove("listening");
-        setVoiceCaptionState("readyAgain");
-
-        if (errorCode === "not-allowed" || errorCode === "service-not-allowed") {
-            voicePermissionGranted = false;
-            if (voicePermissionNote) voicePermissionNote.textContent = "마이크 권한이 필요합니다";
-            setVoiceProgress("마이크 권한이 필요합니다");
-        } else if (errorCode === "no-speech") {
-            setVoiceProgress(IS_MOBILE ? "음성이 들리지 않았습니다. 다시 눌러 시작해 주세요" : "음성이 들리지 않았습니다");
-        } else if (errorCode === "aborted" && voiceManualStopRequested) {
-            setVoiceProgress("음성을 정리하는 중입니다");
-        } else {
-            setVoiceProgress(IS_MOBILE ? "모바일 음성 인식이 바로 종료되었습니다. 다시 눌러 시도해 주세요" : "음성 인식 중 오류가 발생했습니다");
-        }
-        voiceRecognition = null;
-    };
-
-    recognition.onend = async () => {
-        const finalText = (voiceFinalTranscript || "").trim();
-        const wasManualStop = voiceManualStopRequested;
-        voiceListening = false;
-        voiceManualStopRequested = false;
-        stopVoiceMeter();
-        voiceMicBtn.classList.remove("listening");
-        setVoiceCaptionState("readyAgain");
-        if (voicePermissionNote) voicePermissionNote.textContent = IS_MOBILE ? "녹음기 버튼을 눌러 녹음을 다시 시작하세요" : "마이크 사용 준비가 되었습니다";
-        voiceRecognition = null;
-
-        if (!finalText) {
-            setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
-            setVoiceProgress(wasManualStop ? "다시 시도해 주세요" : (IS_MOBILE ? "모바일 음성 인식이 바로 종료되었습니다. 다시 눌러 시도해 주세요" : "음성이 들리지 않았거나 자동 종료되었습니다"));
-            return;
-        }
-
-        try {
-            setVoiceProgress("번역 중입니다");
-            const translated = await translateMongolianToKorean(finalText);
-            setVoiceText(finalText, translated || "번역 결과가 비어 있습니다", false, !translated);
-            setVoiceProgress(translated ? "완료되었습니다" : "번역 결과를 받지 못했습니다");
-        } catch (error) {
-            console.error(error);
-            setVoiceText(finalText, "번역 중 오류가 발생했습니다", false, true);
-            setVoiceProgress("번역 중 오류가 발생했습니다");
-        }
-    };
-
-    try {
-        recognition.start();
-    } catch (error) {
-        console.error(error);
-        setVoiceProgress("음성 인식을 시작하지 못했습니다");
-        stopVoiceRecognition(false);
-        if (voicePermissionNote) voicePermissionNote.textContent = "다시 시도해 주세요";
+    const started = await startVoiceRecognitionEngine();
+    if (!started) {
+        voiceMobileSessionDesired = false;
     }
 }
-
 
 function setStudyOrder(mode) {
     if (typeof mode === "string") {
@@ -3760,12 +3867,15 @@ function switchAppMode(mode) {
         if (!voiceRecognizedText.textContent.trim()) {
             setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
         }
-        setVoiceCaptionState(voiceListening ? "listening" : "idle");
-        if (!voicePermissionRequested) {
+        setVoiceCaptionState((voiceListening || voiceMobileSessionDesired) ? "listening" : "idle");
+        if (IS_MOBILE) {
+            if (voicePermissionNote) voicePermissionNote.textContent = "모바일에서는 버튼으로 시작하고 버튼으로 종료합니다";
+            if (!voiceProgress.textContent) setVoiceProgress("녹음기 버튼을 눌러 시작하세요");
+        } else if (!voicePermissionRequested) {
             setVoiceProgress("마이크 권한을 확인하는 중입니다");
             ensureVoicePermission();
         } else if (voicePermissionGranted) {
-            if (voicePermissionNote) voicePermissionNote.textContent = IS_MOBILE ? "모바일에서는 버튼으로 시작하고 버튼으로 종료합니다" : "마이크 사용 준비가 되었습니다";
+            if (voicePermissionNote) voicePermissionNote.textContent = "마이크 사용 준비가 되었습니다";
         }
     }
 }
