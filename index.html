@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>🇲🇳 신나는 몽골어 번역기 ver20.3.6</title>
+<title>🇲🇳 신나는 몽골어 번역기 ver20.3.7</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 * { box-sizing: border-box; }
@@ -1823,7 +1823,7 @@ input:focus { border-color: #2d8cff; }
 </style>
 </head>
 <body>
-<div class="version">ver20.3.6</div>
+<div class="version">ver20.3.7</div>
 
 <div id="mainPage" class="page">
     <h1>🇲🇳 신나는 몽골어 번역기</h1>
@@ -2124,7 +2124,7 @@ input:focus { border-color: #2d8cff; }
 
 <script>
 /*
-ver20.3.5
+ver20.3.7
 - 기준 버전: 20.3.2
 - 목표: 기능 변경 최소화, 내부 코드 파트별 분류/정리
 - 원칙: 동작 로직은 최대한 유지하고 섹션 주석과 구획만 추가
@@ -2299,6 +2299,7 @@ let studyQuizAnswered = false;
 let studyWarningTimer = null;
 let studyStartTransitionTimer = null;
 const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent || "") || ((navigator.platform === "MacIntel") && navigator.maxTouchPoints > 1);
 let voiceRecognition = null;
 let voiceListening = false;
 let voiceFinalTranscript = "";
@@ -3308,26 +3309,42 @@ async function startVoiceMeter() {
 async function ensureVoicePermission() {
     voicePermissionRequested = true;
 
-    if (IS_MOBILE) {
-        voicePermissionGranted = true;
+    if (IS_IOS) {
+        if (voicePermissionGranted) return true;
         if (!navigator.mediaDevices?.getUserMedia) {
-            if (voicePermissionNote) voicePermissionNote.textContent = "이 브라우저는 마이크 권한 요청을 지원하지 않습니다";
-            setVoiceProgress("브라우저에서 마이크 권한 요청을 지원하지 않습니다");
+            if (voicePermissionNote) voicePermissionNote.textContent = "iPhone/iPad에서는 이 브라우저의 마이크 권한 요청을 지원하지 않습니다";
             return false;
         }
+        try {
+            const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            tempStream.getTracks().forEach(track => track.stop());
+            voicePermissionGranted = true;
+            if (voicePermissionNote) voicePermissionNote.textContent = "iPhone/iPad 마이크 권한이 확인되었습니다. 10초 뒤 자동 종료되거나 버튼으로 종료합니다";
+            return true;
+        } catch (error) {
+            console.error(error);
+            voicePermissionGranted = false;
+            if (voicePermissionNote) voicePermissionNote.textContent = "iPhone/iPad에서도 마이크 권한이 필요합니다";
+            return false;
+        }
+    }
 
+    if (IS_MOBILE) {
+        if (voicePermissionGranted) return true;
+        if (!navigator.mediaDevices?.getUserMedia) {
+            if (voicePermissionNote) voicePermissionNote.textContent = "이 브라우저는 마이크 권한 요청을 지원하지 않습니다";
+            return false;
+        }
         try {
             const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             tempStream.getTracks().forEach(track => track.stop());
             voicePermissionGranted = true;
             if (voicePermissionNote) voicePermissionNote.textContent = "마이크 권한이 확인되었습니다. 10초 뒤 자동 종료되거나 버튼으로 종료합니다";
-            if (!voiceProgress.textContent) setVoiceProgress("마이크 권한이 확인되었습니다");
             return true;
         } catch (error) {
             console.error(error);
             voicePermissionGranted = false;
             if (voicePermissionNote) voicePermissionNote.textContent = "모바일에서도 마이크 권한이 필요합니다";
-            setVoiceProgress("브라우저에서 마이크 권한을 허용해 주세요");
             return false;
         }
     }
@@ -3342,13 +3359,11 @@ async function ensureVoicePermission() {
         tempStream.getTracks().forEach(track => track.stop());
         voicePermissionGranted = true;
         if (voicePermissionNote) voicePermissionNote.textContent = "마이크 사용 준비가 되었습니다";
-        if (!voiceProgress.textContent) setVoiceProgress("마이크 권한이 확인되었습니다");
         return true;
     } catch (error) {
         console.error(error);
         voicePermissionGranted = false;
         if (voicePermissionNote) voicePermissionNote.textContent = "마이크 권한이 필요합니다";
-        setVoiceProgress("브라우저에서 마이크 권한을 허용해 주세요");
         return false;
     }
 }
@@ -3403,7 +3418,7 @@ function createVoiceRecognition() {
 
     const recognition = new SpeechRecognition();
     recognition.lang = "mn-MN";
-    recognition.interimResults = true;
+    recognition.interimResults = IS_IOS ? false : true;
     recognition.maxAlternatives = 1;
     recognition.continuous = false;
     return recognition;
@@ -3415,7 +3430,7 @@ async function finalizeVoiceTranslation(finalText, wasManualStop = false) {
     if (!cleaned) {
         setVoiceText("음성 인식 결과가 여기에 표시됩니다", "번역 결과가 여기에 표시됩니다", true, true);
         if (IS_MOBILE) {
-            setVoiceProgress(wasManualStop ? "음성이 기록되지 않았습니다. 다시 시도해 주세요" : "모바일 음성 인식이 잠시 멈췄습니다");
+            setVoiceProgress(wasManualStop ? "음성이 기록되지 않았습니다. 다시 시도해 주세요" : (IS_IOS ? "iPhone/iPad 음성 인식이 잠시 멈췄습니다" : "모바일 음성 인식이 잠시 멈췄습니다"));
         } else {
             setVoiceProgress(wasManualStop ? "다시 시도해 주세요" : "음성이 들리지 않았거나 자동 종료되었습니다");
         }
@@ -3547,11 +3562,11 @@ async function startVoiceRecognitionEngine() {
             voiceRecognition = null;
             setVoiceCaptionState("readyAgain");
             if (errorCode === "no-speech") {
-                setVoiceProgress("브라우저가 음성을 듣지 못해 종료했습니다");
+                setVoiceProgress(IS_IOS ? "iPhone/iPad 브라우저가 음성을 듣지 못해 종료했습니다" : "브라우저가 음성을 듣지 못해 종료했습니다");
             } else if (errorCode) {
-                setVoiceProgress(`모바일 음성 인식이 종료되었습니다 (${errorCode})`);
+                setVoiceProgress(IS_IOS ? `iPhone/iPad 음성 인식이 종료되었습니다 (${errorCode})` : `모바일 음성 인식이 종료되었습니다 (${errorCode})`);
             } else {
-                setVoiceProgress("모바일 음성 인식이 종료되었습니다");
+                setVoiceProgress(IS_IOS ? "iPhone/iPad 음성 인식이 종료되었습니다" : "모바일 음성 인식이 종료되었습니다");
             }
             return;
         }
@@ -3578,7 +3593,7 @@ async function startVoiceRecognitionEngine() {
             voiceRecognition = null;
             resetVoiceAura();
             setVoiceCaptionState("readyAgain");
-            if (voicePermissionNote) voicePermissionNote.textContent = "모바일에서는 마이크 권한 확인 후 10초 뒤 자동 종료되거나 버튼으로 종료합니다";
+            if (voicePermissionNote) voicePermissionNote.textContent = IS_IOS ? "iPhone/iPad에서는 10초 뒤 자동 종료되거나 버튼으로 종료합니다" : "모바일에서는 10초 뒤 자동 종료되거나 버튼으로 종료합니다";
             await finalizeVoiceTranslation(finalText, wasManualStop);
             return;
         }
@@ -3600,7 +3615,7 @@ async function startVoiceRecognitionEngine() {
         if (voiceMicBtn) voiceMicBtn.classList.remove("listening");
         setVoiceCaptionState("readyAgain");
         setVoiceProgress("음성 인식을 시작하지 못했습니다");
-        if (voicePermissionNote) voicePermissionNote.textContent = IS_MOBILE ? "모바일에서는 마이크 권한 확인 후 10초 뒤 자동 종료되거나 버튼으로 종료합니다" : "다시 시도해 주세요";
+        if (voicePermissionNote) voicePermissionNote.textContent = IS_IOS ? "iPhone/iPad에서는 다시 시도해 주세요" : (IS_MOBILE ? "모바일에서는 10초 뒤 자동 종료되거나 버튼으로 종료합니다" : "다시 시도해 주세요");
         return false;
     }
 }
@@ -3630,7 +3645,7 @@ async function toggleVoiceRecognition() {
     setVoiceCaptionState("listening");
     setVoiceProgress(IS_MOBILE ? "녹음 중..." : "몽골어를 듣는 중입니다");
     if (voicePermissionNote) {
-        voicePermissionNote.textContent = IS_MOBILE ? "모바일에서는 10초 뒤 자동 종료되거나 버튼으로 종료합니다" : "마이크가 켜져 있습니다";
+        voicePermissionNote.textContent = IS_IOS ? "iPhone/iPad에서는 10초 뒤 자동 종료되거나 버튼으로 종료합니다" : (IS_MOBILE ? "모바일에서는 10초 뒤 자동 종료되거나 버튼으로 종료합니다" : "마이크가 켜져 있습니다");
     }
     playVoiceBurst("start");
 
@@ -3929,7 +3944,7 @@ function switchAppMode(mode) {
     if (mode !== "voice") {
         stopVoiceRecognition();
         setVoiceProgress("");
-        if (voicePermissionNote) voicePermissionNote.textContent = IS_MOBILE ? "시작 버튼을 누르면 마이크 권한을 확인합니다" : "시작 버튼을 누르면 마이크 권한을 확인합니다";
+        if (voicePermissionNote) voicePermissionNote.textContent = IS_IOS ? "시작 버튼을 누르면 iPhone/iPad 마이크 권한을 확인합니다" : "시작 버튼을 누르면 마이크 권한을 확인합니다";
     }
 
     if (mode === "voice") {
@@ -3938,7 +3953,7 @@ function switchAppMode(mode) {
         }
         setVoiceCaptionState(voiceListening ? "listening" : "idle");
         if (IS_MOBILE) {
-            if (voicePermissionNote) voicePermissionNote.textContent = "모바일에서는 마이크 권한 확인 후 10초 뒤 자동 종료되거나 버튼으로 종료합니다";
+            if (voicePermissionNote) voicePermissionNote.textContent = IS_IOS ? "iPhone/iPad에서는 10초 뒤 자동 종료되거나 버튼으로 종료합니다" : "모바일에서는 10초 뒤 자동 종료되거나 버튼으로 종료합니다";
             if (!voiceProgress.textContent) setVoiceProgress("녹음기 버튼을 눌러 시작하세요");
         } else if (!voicePermissionRequested) {
             setVoiceProgress("마이크 권한을 확인하는 중입니다");
