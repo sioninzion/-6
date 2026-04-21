@@ -5647,7 +5647,7 @@ function getPreferredTtsVoices() {
     const voices = cachedVoices.length ? cachedVoices : refreshVoices();
     if (!voices.length) return [];
     const englishVoices = voices.filter(v => /^en[-_]/i.test(v.lang || ""));
-    const priority = [/google/i,/samantha/i,/daniel/i,/alex/i,/victoria/i,/serena/i,/karen/i,/moira/i,/zira/i,/aria/i,/jenny/i,/guy/i/];
+    const priority = [/google/i,/samantha/i,/daniel/i,/alex/i,/victoria/i,/serena/i,/karen/i,/moira/i,/zira/i,/aria/i,/jenny/i,/guy/i];
     const ranked = [];
     const used = new Set();
     for (const rule of priority) {
