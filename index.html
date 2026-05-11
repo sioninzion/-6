@@ -1646,52 +1646,57 @@ body.dark-mode .voice-low-confidence { color: #9aa8b8; }
 
 /* 듣기 모드 */
 .listen-page-wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 12px 16px 24px; }
-.listen-title { margin: 12px 0 10px; font-size: 24px; padding-top: 10px; font-weight: 800; }
-.listen-layout { min-height: calc(100vh - 210px); display: grid; grid-template-rows: minmax(150px, 0.75fr) minmax(300px, 1.55fr); gap: 14px; }
+.listen-title { margin: 12px 0 8px; font-size: 24px; padding-top: 10px; font-weight: 800; }
+.listen-subtitle { color: gray; font-size: 12px; line-height: 1.6; margin: 0 auto 14px; max-width: 760px; padding: 0 12px; }
+.listen-layout { min-height: calc(100dvh - 246px); display: grid; grid-template-rows: minmax(168px, 0.72fr) minmax(340px, 1.55fr); gap: 14px; }
 .listen-input-panel, .listen-output-panel { background: #fff; border-radius: 14px; box-shadow: 0 3px 12px rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.04); overflow: hidden; }
 .listen-input-panel { display: grid; grid-template-rows: 1fr auto auto; gap: 10px; padding: 14px; }
-.listen-input-box { width: 100%; min-height: 112px; resize: none; border: 1px solid #d8deea; border-radius: 12px; padding: 14px 16px; font-size: 18px; line-height: 1.55; font-family: inherit; outline: none; }
+.listen-input-box { width: 100%; min-height: 118px; resize: none; border: 1px solid #d8deea; border-radius: 10px; padding: 14px 16px; font-size: 18px; line-height: 1.55; font-family: inherit; outline: none; background: #fff; color: #111; }
 .listen-input-box:focus { border-color: #2d8cff; }
-.listen-output-panel { display: grid; grid-template-rows: auto 1fr; }
-.listen-toolbar { position: relative; display: grid; grid-template-columns: auto auto auto auto 1fr; gap: 8px; align-items: center; padding: 10px; background: #f3f7fc; border-bottom: 1px solid rgba(0,0,0,0.06); }
-.listen-toolbar-btn { border: none; border-radius: 999px; background: #e2ebf7; color: #1f2a37; padding: 10px 13px; font-size: 14px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.listen-input-panel .main-btn { height: 50px; border-radius: 10px; }
+.listen-output-panel { display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+.listen-toolbar { position: relative; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px; background: #f3f7fc; border-bottom: 1px solid rgba(0,0,0,0.06); }
+.listen-toolbar-btn { border: none; border-radius: 10px; background: #e8eef7; color: #1f2a37; min-height: 42px; padding: 0 13px; font-size: 14px; font-weight: 800; cursor: pointer; white-space: nowrap; }
 .listen-toolbar-btn.primary { background: #2d8cff; color: #fff; }
+.listen-toolbar-btn:active { transform: scale(0.98); }
 .listen-rate-wrap { position: relative; display: inline-flex; }
 .listen-rate-menu {
     position: absolute;
     left: 0;
-    top: calc(100% + 6px);
-    width: 82px;
+    top: calc(100% + 7px);
+    width: 96px;
     max-height: 224px;
     overflow-y: auto;
     display: none;
-    padding: 6px 0;
-    border-radius: 6px;
+    padding: 6px;
+    border-radius: 10px;
     background: #fff;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.14);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.14);
     border: 1px solid rgba(0,0,0,0.08);
-    z-index: 60;
+    z-index: 90;
 }
+.listen-pron-menu { width: 118px; }
 .listen-rate-menu.open { display: block; }
 .listen-rate-option {
     width: 100%;
     border: none;
+    border-radius: 8px;
     background: transparent;
     color: #243041;
-    padding: 7px 10px;
+    padding: 8px 10px;
     text-align: center;
     font-size: 13px;
     font-weight: 800;
     cursor: pointer;
 }
 .listen-rate-option.active,
-.listen-rate-option:hover { background: #eef8ff; color: #2d8cff; }
-.listen-output-text { padding: 18px; font-size: 28px; font-weight: 800; line-height: 1.65; text-align: left; word-break: break-word; white-space: pre-wrap; color: #1f2937; }
+.listen-rate-option:hover { background: rgba(45,140,255,0.10); color: #2d8cff; }
+.listen-output-text { min-height: 0; overflow-y: auto; padding: 18px; font-size: 28px; font-weight: 800; line-height: 1.65; text-align: left; word-break: break-word; white-space: pre-wrap; color: #1f2937; }
 .listen-output-text.placeholder { color: #9aa3af; font-size: 18px; font-weight: 700; }
 .listen-progress { min-height: 18px; text-align: left; color: #6f7a89; font-size: 12px; line-height: 1.45; }
 body.dark-mode textarea, body.dark-mode .listen-input-panel, body.dark-mode .listen-output-panel { background: #18212c; color: #eef2f7; border-color: rgba(255,255,255,0.08); }
 body.dark-mode .listen-title, body.dark-mode .listen-output-text { color: #eef2f7; }
-body.dark-mode .listen-progress { color: #aeb8c6; }
+body.dark-mode .listen-subtitle, body.dark-mode .listen-progress { color: #aeb8c6; }
 body.dark-mode .listen-toolbar { background: #101923; border-color: rgba(255,255,255,0.08); }
 body.dark-mode .listen-toolbar-btn { background: #243243; color: #eef2f7; }
 body.dark-mode .listen-rate-menu { background: #18212c; border-color: rgba(255,255,255,0.08); }
@@ -1798,12 +1803,18 @@ body.dark-mode .listen-toolbar-btn.primary { background: #3b97ff; color: #fff; }
 @media (max-width: 768px) {
     .listen-page-wrap { max-width: none; padding: 12px 12px 20px; }
     .listen-title { font-size: 22px; margin-top: 10px; padding-top: 14px; }
-    .listen-layout { min-height: calc(100vh - 190px); grid-template-rows: minmax(140px, 0.7fr) minmax(320px, 1.65fr); gap: 12px; }
-    .listen-input-panel { padding: 12px; }
-    .listen-input-box { min-height: 108px; font-size: 17px; padding: 13px 14px; }
-    .listen-toolbar { grid-template-columns: 1fr 1fr; gap: 7px; padding: 9px; }
-    .listen-toolbar-btn { padding: 10px 10px; font-size: 13px; }
+    .listen-subtitle { font-size: 11px; padding: 0 12px; margin-bottom: 12px; }
+    .listen-layout { min-height: calc(100dvh - 226px); grid-template-rows: minmax(154px, auto) minmax(360px, 1fr); gap: 12px; }
+    .listen-input-panel { padding: 12px; border-radius: 14px; }
+    .listen-input-box { min-height: 104px; font-size: 17px; padding: 13px 14px; }
+    .listen-input-panel .main-btn { width: 100%; height: 50px; font-size: 17px; }
+    .listen-toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; padding: 9px; align-items: stretch; }
+    .listen-rate-wrap { width: 100%; }
+    .listen-rate-wrap .listen-toolbar-btn, .listen-toolbar > .listen-toolbar-btn { width: 100%; min-width: 0; padding: 0 8px; font-size: 13px; }
+    .listen-rate-menu { width: 100%; min-width: 96px; max-height: 210px; }
+    .listen-pron-menu { width: 100%; }
     .listen-output-text { padding: 16px; font-size: 23px; line-height: 1.7; }
+    .listen-output-text.placeholder { font-size: 16px; }
 
     .mode-switch {
         top: 10px;
@@ -2501,6 +2512,7 @@ body.dark-mode .listen-toolbar-btn.primary { background: #3b97ff; color: #fff; }
 <div id="listenPage" class="page">
     <div class="listen-page-wrap">
         <div class="listen-title">신나는 듣기 모드</div>
+        <div class="listen-subtitle">한국어를 몽골어로 바꾸고 발음 방식과 속도를 골라 들어보세요</div>
         <div class="listen-layout">
             <section class="listen-input-panel">
                 <textarea class="listen-input-box" id="listenKoreanInput" placeholder="한국어 입력"></textarea>
@@ -3834,13 +3846,14 @@ function buildListenRateMenu() {
 }
 function getListenPronLabel(mode) {
     if (mode === "korean") return "한국식";
+    if (mode === "cyrillic") return "키릴식";
     if (mode === "mongolian") return "몽골식";
     return "영어식";
 }
 function toggleListenPronMenu(event) { if (event) event.stopPropagation(); if (listenPronMenu) listenPronMenu.classList.toggle("open"); }
 function closeListenPronMenu() { if (listenPronMenu) listenPronMenu.classList.remove("open"); }
 function setListenPronunciationMode(mode) {
-    const safeMode = ["korean", "english", "mongolian"].includes(mode) ? mode : "english";
+    const safeMode = ["korean", "english", "mongolian", "cyrillic"].includes(mode) ? mode : "english";
     appSettings.tts.pronunciationMode = safeMode;
     if (listenPronButtonValue) listenPronButtonValue.textContent = getListenPronLabel(safeMode);
     if (listenPronMenu) {
@@ -3852,7 +3865,7 @@ function setListenPronunciationMode(mode) {
 }
 function buildListenPronMenu() {
     if (!listenPronMenu) return;
-    const items = [["korean", "한국식"], ["english", "영어식"], ["mongolian", "몽골식"]];
+    const items = [["korean", "한국식"], ["english", "영어식"], ["cyrillic", "키릴식"], ["mongolian", "몽골식"]];
     listenPronMenu.innerHTML = "";
     items.forEach(([mode, label]) => {
         const btn = document.createElement("button");
@@ -3870,6 +3883,29 @@ function getBestVoiceByLang(prefixes) {
     const list = Array.isArray(prefixes) ? prefixes : [prefixes];
     return voices.find(v => list.some(prefix => String(v.lang || "").toLowerCase().startsWith(prefix.toLowerCase()))) || null;
 }
+function getBestCyrillicVoice() {
+    return getBestVoiceByLang(["kk", "ky", "ru", "uk", "bg", "sr"]);
+}
+function mongolianToCyrillicTtsText(text, voice) {
+    const lang = String(voice?.lang || "").toLowerCase();
+    let value = String(text || "");
+
+    // 카자흐/키르기스 음성은 ө, ү, ң 계열을 비교적 잘 받아들이므로 원문을 우선 보존합니다.
+    if (lang.startsWith("kk") || lang.startsWith("ky")) {
+        return value.replace(/[Ққ]/g, m => m === "Қ" ? "К" : "к");
+    }
+
+    // 러시아식 음성은 몽골어 특수 키릴을 모르므로 가장 가까운 러시아어식 문자로 우회합니다.
+    return value
+        .replace(/[Өө]/g, m => m === "Ө" ? "О" : "о")
+        .replace(/[Үү]/g, m => m === "Ү" ? "У" : "у")
+        .replace(/[Ңң]/g, m => m === "Ң" ? "Н" : "н")
+        .replace(/[Ққ]/g, m => m === "Қ" ? "К" : "к")
+        .replace(/[Һһ]/g, m => m === "Һ" ? "Х" : "х")
+        .replace(/[Іі]/g, m => m === "І" ? "И" : "и")
+        .replace(/([АЕЁИОӨУҮЫЭЮЯаеёиоөуүыэюя])н\b/g, "$1нг")
+        .replace(/([АЕЁИОӨУҮЫЭЮЯаеёиоуыэюя])Н\b/g, "$1НГ");
+}
 function getListenTtsPayload() {
     const mode = appSettings.tts.pronunciationMode || "english";
     const roman = listenLastRomanText || toRoman(listenLastMongolianText);
@@ -3880,6 +3916,11 @@ function getListenTtsPayload() {
         const voice = getBestVoiceByLang("mn");
         if (!voice) return { unavailable: true, text: "", lang: "mn-MN", voice: null };
         return { text: listenLastMongolianText, lang: "mn-MN", voice };
+    }
+    if (mode === "cyrillic") {
+        const voice = getBestCyrillicVoice();
+        if (!voice) return { unavailable: true, text: "", lang: "ru-RU", voice: null, unavailableMessage: "키릴식 TTS 사용 불가" };
+        return { text: mongolianToCyrillicTtsText(listenLastMongolianText, voice), lang: voice.lang || "ru-RU", voice };
     }
     return { text: romanToTtsEnglish(roman), lang: "en-US", voice: getSelectedTtsVoice() };
 }
@@ -3902,7 +3943,7 @@ function playListenTts() {
     if (!("speechSynthesis" in window)) { showToast("이 기기는 TTS 미지원"); return; }
     refreshVoices(); stopTts();
     const payload = getListenTtsPayload();
-    if (payload.unavailable) { showListenTemporaryNotice("몽골어 TTS 사용 불가"); return; }
+    if (payload.unavailable) { showListenTemporaryNotice(payload.unavailableMessage || "몽골어 TTS 사용 불가"); return; }
     if (!payload.text) { showToast("읽을 내용 없음"); return; }
     const utterance = new SpeechSynthesisUtterance(payload.text);
     if (payload.voice) { utterance.voice = payload.voice; utterance.lang = payload.voice.lang || payload.lang; } else { utterance.lang = payload.lang; }
