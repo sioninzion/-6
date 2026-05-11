@@ -3340,6 +3340,55 @@ function romanToKorean(text) {
 }
 
 
+
+function romanToKoreanTts(text) {
+    let t = String(text || "").trim().toLowerCase()
+        .replace(/[()\/\-~]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const phraseRules = [
+        [/\bsain baina uu\b/g, "센 베 노"],
+        [/\bbayarlalaa\b/g, "바야를라"],
+        [/\buuchlaarai\b/g, "오칠라레"],
+        [/\bugui\b/g, "우구이"],
+        [/\bta khen be\b/g, "타 헨 베"],
+        [/\bchi khen be\b/g, "치 헨 베"],
+        [/\bta khen gedeg ve\b/g, "타 헨 게덱 베"],
+        [/\bbi chamd khairtai\b/g, "비 참드 하이르태"],
+        [/\bkhairtai\b/g, "하이르태"],
+        [/\bhairtai\b/g, "하이르태"]
+    ];
+    t = applyRuleList(t, phraseRules);
+
+    const wordRules = [
+        [/\bbaina\b/g, "베나"],
+        [/\bsain\b/g, "센"],
+        [/\buu\b/g, "오"],
+        [/\bta\b/g, "타"],
+        [/\bchi\b/g, "치"],
+        [/\bkhen\b/g, "헨"],
+        [/\bbe\b/g, "베"],
+        [/\bve\b/g, "베"],
+        [/\bgedeg\b/g, "게덱"],
+        [/\bgej\b/g, "게즈"],
+        [/\bnamaig\b/g, "나매그"],
+        [/\bmini\b/g, "미니"],
+        [/\bchini\b/g, "치니"],
+        [/\btanii\b/g, "타니"],
+        [/\byavna\b/g, "야브나"],
+        [/\byesus\b/g, "예수스"],
+        [/\bborhan\b/g, "보르항"]
+    ];
+    t = applyRuleList(t, wordRules);
+
+    return t.split(/(\s+)/)
+        .map(part => /\s+/.test(part) || /[가-힣]/.test(part) ? part : romanToKorean(part))
+        .join("")
+        .replace(/([가-힣])\s+([가-힣])/g, "$1 $2")
+        .replace(/\s+/g, " ")
+        .trim();
+}
 /* =========================
    [3] 일반 번역 / 결과 표시
    ========================= */
@@ -3449,19 +3498,41 @@ function refreshVoices() {
 function getBestEnglishVoice() {
     const voices = cachedVoices.length ? cachedVoices : refreshVoices();
     if (!voices.length) return null;
-
-    const highPriority = voices.find(v =>
-        /^en[-_]/i.test(v.lang) &&
-        /google|samantha|daniel|alex|victoria|serena|karen|moira/i.test(v.name)
-    );
-    if (highPriority) return highPriority;
-
-    const englishVoice = voices.find(v => /^en[-_]/i.test(v.lang));
-    if (englishVoice) return englishVoice;
-
-    return voices[0] || null;
+    const englishVoices = voices.filter(v => /^en[-_]/i.test(v.lang || ""));
+    return rankVoicesForClarity(englishVoices.length ? englishVoices : voices, "en")[0] || null;
 }
 
+function scoreTtsVoiceForClarity(voice, preferredPrefixes = []) {
+    const name = String(voice?.name || "").toLowerCase();
+    const lang = String(voice?.lang || "").toLowerCase();
+    const prefixes = Array.isArray(preferredPrefixes) ? preferredPrefixes : [preferredPrefixes];
+    let score = 0;
+
+    if (prefixes.some(prefix => lang.startsWith(String(prefix || "").toLowerCase()))) score += 120;
+    if (/natural|neural|premium|enhanced|online/.test(name)) score += 36;
+    if (/microsoft|google|apple/.test(name)) score += 28;
+    if (/aria|jenny|guy|zira|samantha|daniel|alex|victoria|serena|karen|moira|ava|emma|brian|ryan|libby|sonia/.test(name)) score += 18;
+    if (/compact|eloquence|novelty|whisper|trinoids|zarvox|bells|organ|bad news|good news/.test(name)) score -= 80;
+    if (/en-us|ko-kr|ru-ru|kk-kz|ky-kg/.test(lang)) score += 8;
+    if (voice?.localService === false) score += 4;
+
+    return score;
+}
+
+function rankVoicesForClarity(voices, preferredPrefixes = []) {
+    return [...(voices || [])].sort((a, b) => scoreTtsVoiceForClarity(b, preferredPrefixes) - scoreTtsVoiceForClarity(a, preferredPrefixes));
+}
+
+function applyClearTtsProfile(utterance, options = {}) {
+    const mode = options.mode || "english";
+    const baseRate = Number(options.rate ?? appSettings.tts.rate ?? 1.0);
+    const basePitch = Number(options.pitch ?? appSettings.tts.pitch ?? 1.0);
+    const pitchLift = mode === "korean" ? 0.03 : mode === "cyrillic" ? 0.02 : 0.04;
+
+    utterance.rate = Math.max(0.5, Math.min(1.3, baseRate));
+    utterance.pitch = Math.max(0.7, Math.min(1.18, basePitch + pitchLift));
+    utterance.volume = 1.0;
+}
 function applyRuleList(text, rules) {
     let output = text;
     for (const [pattern, replacement] of rules) {
@@ -3564,12 +3635,19 @@ function romanToTtsEnglish(text) {
         [/\byesus\b/g, "yeh soos"],
         [/\bkhairtai\b/g, "hire tai"],
         [/\bhairtai\b/g, "hire tai"],
-        [/\btaivandaa\b/g, "tai van daa"]
+        [/\btaivandaa\b/g, "tai van daa"],
+        [/\bamar\b/g, "ah mar"],
+        [/\bamgalan\b/g, "ahm galan"],
+        [/\bmongol\b/g, "mong gol"],
+        [/\bmongolia\b/g, "mong gol ya"],
+        [/\bsurguuli\b/g, "soor goh lee"],
+        [/\bhumuus\b/g, "hoo moose"]
     ];
     t = applyRuleList(t, wordRules);
 
     const clusterRules = [
         [/kh/g, "h"],
+        [/gh/g, "g"],
         [/sh/g, "sh"],
         [/ch/g, "ch"],
         [/ts/g, "ts"],
@@ -3584,6 +3662,8 @@ function romanToTtsEnglish(text) {
         [/ei/g, "ay"],
         [/oi/g, "oy"],
         [/ui/g, "ooey"],
+        [/ü/g, "oo"],
+        [/ö/g, "uhr"],
         [/au/g, "ow"]
     ];
     t = applyRuleList(t, clusterRules);
@@ -3594,7 +3674,10 @@ function romanToTtsEnglish(text) {
         [/aa/g, "aah"],
         [/ee/g, "ay"],
         [/ii/g, "ee"],
-        [/uu/g, "ooh"],        [/\bn\b/g, "en"]
+        [/uu/g, "ooh"],
+        [/\bn\b/g, "en"],
+        [/\bng\b/g, "eng"],
+        [/\bkh\b/g, "huh"]
     ];
     t = applyRuleList(t, finalRules);
 
@@ -3647,9 +3730,7 @@ function speakHistoryRoman(id) {
         utterance.lang = "en-US";
     }
 
-    utterance.rate = appSettings.tts.rate;
-    utterance.pitch = appSettings.tts.pitch;
-    utterance.volume = 1.0;
+    applyClearTtsProfile(utterance, { mode: "english" });
 
     utterance.onstart = () => {
         currentSpeakingId = id;
@@ -3847,13 +3928,12 @@ function buildListenRateMenu() {
 function getListenPronLabel(mode) {
     if (mode === "korean") return "한국식";
     if (mode === "cyrillic") return "키릴식";
-    if (mode === "mongolian") return "몽골식";
     return "영어식";
 }
 function toggleListenPronMenu(event) { if (event) event.stopPropagation(); if (listenPronMenu) listenPronMenu.classList.toggle("open"); }
 function closeListenPronMenu() { if (listenPronMenu) listenPronMenu.classList.remove("open"); }
 function setListenPronunciationMode(mode) {
-    const safeMode = ["korean", "english", "mongolian", "cyrillic"].includes(mode) ? mode : "english";
+    const safeMode = ["korean", "english", "cyrillic"].includes(mode) ? mode : "english";
     appSettings.tts.pronunciationMode = safeMode;
     if (listenPronButtonValue) listenPronButtonValue.textContent = getListenPronLabel(safeMode);
     if (listenPronMenu) {
@@ -3865,7 +3945,7 @@ function setListenPronunciationMode(mode) {
 }
 function buildListenPronMenu() {
     if (!listenPronMenu) return;
-    const items = [["korean", "한국식"], ["english", "영어식"], ["cyrillic", "키릴식"], ["mongolian", "몽골식"]];
+    const items = [["korean", "한국식"], ["english", "영어식"], ["cyrillic", "키릴식"]];
     listenPronMenu.innerHTML = "";
     items.forEach(([mode, label]) => {
         const btn = document.createElement("button");
@@ -3876,53 +3956,76 @@ function buildListenPronMenu() {
         btn.onclick = () => { setListenPronunciationMode(mode); closeListenPronMenu(); };
         listenPronMenu.appendChild(btn);
     });
-    setListenPronunciationMode(appSettings.tts.pronunciationMode || "english");
+    setListenPronunciationMode(appSettings.tts.pronunciationMode === "mongolian" ? "english" : (appSettings.tts.pronunciationMode || "english"));
 }
 function getBestVoiceByLang(prefixes) {
     const voices = cachedVoices.length ? cachedVoices : refreshVoices();
     const list = Array.isArray(prefixes) ? prefixes : [prefixes];
-    return voices.find(v => list.some(prefix => String(v.lang || "").toLowerCase().startsWith(prefix.toLowerCase()))) || null;
+    const matched = voices.filter(v => list.some(prefix => String(v.lang || "").toLowerCase().startsWith(String(prefix || "").toLowerCase())));
+    return rankVoicesForClarity(matched, list)[0] || null;
 }
 function getBestCyrillicVoice() {
     return getBestVoiceByLang(["kk", "ky", "ru", "uk", "bg", "sr"]);
 }
+function stressCyrillicWordForTts(word) {
+    if (!/[А-Яа-яЁёӨөҮү]/.test(word) || /\u0301/.test(word)) return word;
+    return word.replace(/([АаЕеЁёИиОоУуЫыЭэЮюЯя])/, "$1\u0301");
+}
+
+function stressCyrillicTextForTts(text) {
+    return String(text || "")
+        .split(/(\s+)/)
+        .map(part => /\s+/.test(part) ? part : stressCyrillicWordForTts(part))
+        .join("");
+}
+
 function mongolianToCyrillicTtsText(text, voice) {
     const lang = String(voice?.lang || "").toLowerCase();
-    let value = String(text || "");
+    const value = String(text || "")
+        .replace(/\s+/g, " ")
+        .trim();
 
-    // 카자흐/키르기스 음성은 ө, ү, ң 계열을 비교적 잘 받아들이므로 원문을 우선 보존합니다.
+    const vowelClass = "АЕЁИОӨУҮЫЭЮЯаеёиоөуүыэюя";
+    const softenFinalN = input => input
+        .replace(new RegExp(`([${vowelClass}])н(?=\\s|[.,!?;:]|$)`, "g"), "$1нг")
+        .replace(new RegExp(`([${vowelClass}])Н(?=\\s|[.,!?;:]|$)`, "g"), "$1НГ");
+
     if (lang.startsWith("kk") || lang.startsWith("ky")) {
-        return value.replace(/[Ққ]/g, m => m === "Қ" ? "К" : "к");
+        return softenFinalN(value)
+            .replace(/[Ққ]/g, m => m === "Қ" ? "К" : "к")
+            .replace(/[Һһ]/g, m => m === "Һ" ? "Х" : "х");
     }
 
-    // 러시아식 음성은 몽골어 특수 키릴을 모르므로 가장 가까운 러시아어식 문자로 우회합니다.
-    return value
-        .replace(/[Өө]/g, m => m === "Ө" ? "О" : "о")
-        .replace(/[Үү]/g, m => m === "Ү" ? "У" : "у")
-        .replace(/[Ңң]/g, m => m === "Ң" ? "Н" : "н")
+    const russianReadable = softenFinalN(value)
+        .replace(/Ө/g, "О\u0301")
+        .replace(/ө/g, "о\u0301")
+        .replace(/Ү/g, "У\u0301")
+        .replace(/ү/g, "у\u0301")
+        .replace(/[Ңң]/g, m => m === "Ң" ? "Нг" : "нг")
         .replace(/[Ққ]/g, m => m === "Қ" ? "К" : "к")
         .replace(/[Һһ]/g, m => m === "Һ" ? "Х" : "х")
         .replace(/[Іі]/g, m => m === "І" ? "И" : "и")
-        .replace(/([АЕЁИОӨУҮЫЭЮЯаеёиоөуүыэюя])н\b/g, "$1нг")
-        .replace(/([АЕЁИОӨУҮЫЭЮЯаеёиоуыэюя])Н\b/g, "$1НГ");
+        .replace(/([АаОоУуЭэИиЫы])\1/g, "$1\u0301")
+        .replace(/([Ее])\1/g, "э\u0301")
+        .replace(/([Юю])\1/g, "ю\u0301")
+        .replace(/([Яя])\1/g, "я\u0301")
+        .replace(/ий\b/g, "и")
+        .replace(/ы\b/g, "и");
+
+    return stressCyrillicTextForTts(russianReadable);
 }
 function getListenTtsPayload() {
-    const mode = appSettings.tts.pronunciationMode || "english";
+    const mode = appSettings.tts.pronunciationMode === "mongolian" ? "english" : (appSettings.tts.pronunciationMode || "english");
     const roman = listenLastRomanText || toRoman(listenLastMongolianText);
     if (mode === "korean") {
-        return { text: romanToKorean(roman), lang: "ko-KR", voice: getBestVoiceByLang("ko") };
-    }
-    if (mode === "mongolian") {
-        const voice = getBestVoiceByLang("mn");
-        if (!voice) return { unavailable: true, text: "", lang: "mn-MN", voice: null };
-        return { text: listenLastMongolianText, lang: "mn-MN", voice };
+        return { text: romanToKoreanTts(roman), lang: "ko-KR", voice: getBestVoiceByLang("ko"), mode };
     }
     if (mode === "cyrillic") {
         const voice = getBestCyrillicVoice();
         if (!voice) return { unavailable: true, text: "", lang: "ru-RU", voice: null, unavailableMessage: "키릴식 TTS 사용 불가" };
-        return { text: mongolianToCyrillicTtsText(listenLastMongolianText, voice), lang: voice.lang || "ru-RU", voice };
+        return { text: mongolianToCyrillicTtsText(listenLastMongolianText, voice), lang: voice.lang || "ru-RU", voice, mode };
     }
-    return { text: romanToTtsEnglish(roman), lang: "en-US", voice: getSelectedTtsVoice() };
+    return { text: romanToTtsEnglish(roman), lang: "en-US", voice: getSelectedTtsVoice(), mode };
 }
 async function runListenTranslation() {
     const input = (listenKoreanInput?.value || "").trim();
@@ -3947,8 +4050,7 @@ function playListenTts() {
     if (!payload.text) { showToast("읽을 내용 없음"); return; }
     const utterance = new SpeechSynthesisUtterance(payload.text);
     if (payload.voice) { utterance.voice = payload.voice; utterance.lang = payload.voice.lang || payload.lang; } else { utterance.lang = payload.lang; }
-    utterance.rate = Number(appSettings.tts.rate || 1.0);
-    utterance.pitch = appSettings.tts.pitch; utterance.volume = 1.0;
+    applyClearTtsProfile(utterance, { mode: payload.mode || "english" });
     utterance.onstart = () => setListenProgress("재생 중입니다");
     utterance.onend = () => setListenProgress("재생이 끝났습니다");
     utterance.onerror = (event) => { console.error("듣기 모드 TTS 오류", event); setListenProgress("재생 중 오류가 발생했습니다"); showToast("재생 실패"); };
@@ -6238,23 +6340,7 @@ function getPreferredTtsVoices() {
     const voices = cachedVoices.length ? cachedVoices : refreshVoices();
     if (!voices.length) return [];
     const englishVoices = voices.filter(v => /^en[-_]/i.test(v.lang || ""));
-    const priority = [/google/i,/samantha/i,/daniel/i,/alex/i,/victoria/i,/serena/i,/karen/i,/moira/i,/zira/i,/aria/i,/jenny/i,/guy/i];
-    const ranked = [];
-    const used = new Set();
-    for (const rule of priority) {
-        const found = englishVoices.find(v => !used.has(v.name) && rule.test(v.name || ""));
-        if (found) {
-            ranked.push(found);
-            used.add(found.name);
-        }
-    }
-    for (const voice of englishVoices) {
-        if (!used.has(voice.name)) {
-            ranked.push(voice);
-            used.add(voice.name);
-        }
-    }
-    return ranked.slice(0, 5);
+    return rankVoicesForClarity(englishVoices, "en").slice(0, 7);
 }
 function getSelectedTtsVoice() {
     const voices = getPreferredTtsVoices();
@@ -6273,7 +6359,7 @@ function populateTtsVoiceSelect() {
     const helper = document.getElementById("ttsVoiceHelper");
     select.innerHTML = `<option value="auto">추천 목소리 자동</option>` + voices.map(v => `<option value="${v.name.replace(/"/g,'&quot;')}">${v.name} (${v.lang})</option>`).join("");
     select.value = voices.some(v => v.name === current) ? current : "auto";
-    if (helper) helper.textContent = voices.length ? `추천 목소리 ${voices.length}개만 보여줍니다.` : "기기에서 사용할 수 있는 영어 목소리를 찾는 중입니다.";
+    if (helper) helper.textContent = voices.length ? `더 선명하게 들리는 목소리 ${voices.length}개를 우선 보여줍니다.` : "기기에서 사용할 수 있는 영어 목소리를 찾는 중입니다.";
 }
 function playTtsPreview() {
     if (!("speechSynthesis" in window)) return showToast("이 기기는 TTS 미지원");
@@ -6281,7 +6367,7 @@ function playTtsPreview() {
     const utterance = new SpeechSynthesisUtterance(romanToTtsEnglish("sain baina uu. bayarlalaa."));
     const voice = getSelectedTtsVoice();
     if (voice) { utterance.voice = voice; utterance.lang = voice.lang || "en-US"; } else utterance.lang = "en-US";
-    utterance.rate = appSettings.tts.rate; utterance.pitch = appSettings.tts.pitch; utterance.volume = 1;
+    applyClearTtsProfile(utterance, { mode: "english" });
     window.speechSynthesis.speak(utterance);
 }
 function setQuizDifficulty(level) { appSettings.quizDifficulty = level; saveSettings(); syncSettingsUI(); }
