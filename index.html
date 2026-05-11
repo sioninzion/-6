@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>🇲🇳 신나는 몽골어 번역기 ver20.6</title>
+<title>🇲🇳 신나는 몽골어 번역기 ver.21</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 * { box-sizing: border-box; }
@@ -40,7 +40,7 @@ body.dark-mode .tts-settings-card {
     color: #eef2f7;
     border-color: rgba(255,255,255,0.08);
 }
-body.dark-mode .subtitle, body.dark-mode .camera-subtitle, body.dark-mode .voice-subtitle, body.dark-mode .study-subtitle, body.dark-mode .hint, body.dark-mode .loading-text, body.dark-mode .voice-permission-note, body.dark-mode .camera-box-label, body.dark-mode .result-line-label, body.dark-mode .settings-helper, body.dark-mode .settings-label, body.dark-mode .settings-preview-caption, body.dark-mode .highlighted-input, body.dark-mode .version {
+body.dark-mode .subtitle, body.dark-mode .camera-subtitle, body.dark-mode .voice-subtitle, body.dark-mode .study-subtitle, body.dark-mode .hint, body.dark-mode .loading-text, body.dark-mode .voice-permission-note, body.dark-mode .camera-box-label, body.dark-mode .result-line-label, body.dark-mode .settings-helper, body.dark-mode .settings-label, body.dark-mode .settings-preview-caption, body.dark-mode .highlighted-input, body.dark-mode.version {
     color: #aeb8c6;
 }
 body.dark-mode h1,
@@ -173,7 +173,7 @@ body.app-typography .cyrillic-text { font-weight: var(--cyrillic-font-weight); }
 .version {
     position: fixed;
     top: 10px;
-    right: 14px;
+    left: 76px;
     color: gray;
     font-size: 12px;
     z-index: 120;
@@ -204,6 +204,7 @@ body.app-typography .cyrillic-text { font-weight: var(--cyrillic-font-weight); }
 #cameraPage { display: none; }
 #voicePage { display: none; }
 #studyPage { display: none; }
+#listenPage { display: none; }
 
 h1 {
     margin: 12px 0 8px;
@@ -412,7 +413,7 @@ input:focus { border-color: #2d8cff; }
     padding: 10px 12px;
     border-radius: 10px;
     grid-column: 2;
-    grid-row: 1 / span 2;
+    grid-row: 1;
 }
 
 .copy-panel {
@@ -944,7 +945,7 @@ input:focus { border-color: #2d8cff; }
     bottom: 0;
     z-index: 180;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 0;
     padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
     background: rgba(255,255,255,0.92);
@@ -1642,6 +1643,62 @@ body.dark-mode .voice-low-confidence { color: #9aa8b8; }
 
 
 
+
+/* 듣기 모드 */
+.listen-page-wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 12px 16px 24px; }
+.listen-title { margin: 12px 0 10px; font-size: 24px; padding-top: 10px; font-weight: 800; }
+.listen-layout { min-height: calc(100vh - 210px); display: grid; grid-template-rows: minmax(150px, 0.75fr) minmax(300px, 1.55fr); gap: 14px; }
+.listen-input-panel, .listen-output-panel { background: #fff; border-radius: 14px; box-shadow: 0 3px 12px rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.04); overflow: hidden; }
+.listen-input-panel { display: grid; grid-template-rows: 1fr auto auto; gap: 10px; padding: 14px; }
+.listen-input-box { width: 100%; min-height: 112px; resize: none; border: 1px solid #d8deea; border-radius: 12px; padding: 14px 16px; font-size: 18px; line-height: 1.55; font-family: inherit; outline: none; }
+.listen-input-box:focus { border-color: #2d8cff; }
+.listen-output-panel { display: grid; grid-template-rows: auto 1fr; }
+.listen-toolbar { position: relative; display: grid; grid-template-columns: auto auto auto auto 1fr; gap: 8px; align-items: center; padding: 10px; background: #f3f7fc; border-bottom: 1px solid rgba(0,0,0,0.06); }
+.listen-toolbar-btn { border: none; border-radius: 999px; background: #e2ebf7; color: #1f2a37; padding: 10px 13px; font-size: 14px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.listen-toolbar-btn.primary { background: #2d8cff; color: #fff; }
+.listen-rate-wrap { position: relative; display: inline-flex; }
+.listen-rate-menu {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    width: 82px;
+    max-height: 224px;
+    overflow-y: auto;
+    display: none;
+    padding: 6px 0;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.14);
+    border: 1px solid rgba(0,0,0,0.08);
+    z-index: 60;
+}
+.listen-rate-menu.open { display: block; }
+.listen-rate-option {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: #243041;
+    padding: 7px 10px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+.listen-rate-option.active,
+.listen-rate-option:hover { background: #eef8ff; color: #2d8cff; }
+.listen-output-text { padding: 18px; font-size: 28px; font-weight: 800; line-height: 1.65; text-align: left; word-break: break-word; white-space: pre-wrap; color: #1f2937; }
+.listen-output-text.placeholder { color: #9aa3af; font-size: 18px; font-weight: 700; }
+.listen-progress { min-height: 18px; text-align: left; color: #6f7a89; font-size: 12px; line-height: 1.45; }
+body.dark-mode textarea, body.dark-mode .listen-input-panel, body.dark-mode .listen-output-panel { background: #18212c; color: #eef2f7; border-color: rgba(255,255,255,0.08); }
+body.dark-mode .listen-title, body.dark-mode .listen-output-text { color: #eef2f7; }
+body.dark-mode .listen-progress { color: #aeb8c6; }
+body.dark-mode .listen-toolbar { background: #101923; border-color: rgba(255,255,255,0.08); }
+body.dark-mode .listen-toolbar-btn { background: #243243; color: #eef2f7; }
+body.dark-mode .listen-rate-menu { background: #18212c; border-color: rgba(255,255,255,0.08); }
+body.dark-mode .listen-rate-option { color: #eef2f7; }
+body.dark-mode .listen-rate-option.active, body.dark-mode .listen-rate-option:hover { background: #243243; color: #6cb0ff; }
+body.dark-mode .listen-toolbar-btn.primary { background: #3b97ff; color: #fff; }
+
 /* 설정 패널 */
 .settings-button {
     position: fixed;
@@ -1739,6 +1796,15 @@ body.dark-mode .voice-low-confidence { color: #9aa8b8; }
 .tts-settings-card .main-btn { height:46px; }
 
 @media (max-width: 768px) {
+    .listen-page-wrap { max-width: none; padding: 12px 12px 20px; }
+    .listen-title { font-size: 22px; margin-top: 10px; padding-top: 14px; }
+    .listen-layout { min-height: calc(100vh - 190px); grid-template-rows: minmax(140px, 0.7fr) minmax(320px, 1.65fr); gap: 12px; }
+    .listen-input-panel { padding: 12px; }
+    .listen-input-box { min-height: 108px; font-size: 17px; padding: 13px 14px; }
+    .listen-toolbar { grid-template-columns: 1fr 1fr; gap: 7px; padding: 9px; }
+    .listen-toolbar-btn { padding: 10px 10px; font-size: 13px; }
+    .listen-output-text { padding: 16px; font-size: 23px; line-height: 1.7; }
+
     .mode-switch {
         top: 10px;
         left: 12px;
@@ -1760,9 +1826,9 @@ body.dark-mode .voice-low-confidence { color: #9aa8b8; }
     .settings-preview-main { font-size: 26px; }
     .settings-preview-sub { font-size: 18px; }
 
-    .version {
+   .version {
         top: 12px;
-        right: 12px;
+        left: 72px;
         font-size: 12px;
     }
 
@@ -1850,7 +1916,7 @@ body.dark-mode .voice-low-confidence { color: #9aa8b8; }
     .buttons {
         width: 100%;
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: 1fr 1fr;
         gap: 6px;
         align-self: auto;
     }
@@ -1864,7 +1930,7 @@ body.dark-mode .voice-low-confidence { color: #9aa8b8; }
         width: 100%;
     }
 
-    .copy-btn, .listen-btn, .screen-btn {
+    .copy-btn, .screen-btn {
         width: 100%;
         min-width: 0;
         padding: 12px 10px;
@@ -2188,7 +2254,7 @@ body.dark-mode .voice-low-confidence { color: #9aa8b8; }
 </style>
 </head>
 <body>
-<div class="version">ver20.6</div>
+<div class="version">ver.21</div>
 
 
 <button class="settings-button" id="settingsButton" onclick="toggleSettingsPanel(true)" aria-label="설정 열기">
@@ -2228,7 +2294,7 @@ body.dark-mode .voice-low-confidence { color: #9aa8b8; }
                         <div class="settings-label">속도</div>
                         <div class="settings-helper">듣기 버튼에 바로 반영됩니다.</div>
                     </div>
-                    <div class="settings-range-value" id="ttsRateValue">0.72</div>
+                    <div class="settings-range-value" id="ttsRateValue">1.00</div>
                 </div>
                 <input class="settings-range" type="range" min="0.5" max="1.3" step="0.01" id="ttsRateRange" oninput="onTtsRateChange(this.value)">
                 <div class="settings-row">
@@ -2432,6 +2498,34 @@ body.dark-mode .voice-low-confidence { color: #9aa8b8; }
 </div>
 
 
+<div id="listenPage" class="page">
+    <div class="listen-page-wrap">
+        <div class="listen-title">신나는 듣기 모드</div>
+        <div class="listen-layout">
+            <section class="listen-input-panel">
+                <textarea class="listen-input-box" id="listenKoreanInput" placeholder="한국어 입력"></textarea>
+                <button class="main-btn" id="listenTranslateBtn" onclick="runListenTranslation()">몽골어로 번역</button>
+                <div class="listen-progress" id="listenProgress"></div>
+            </section>
+            <section class="listen-output-panel">
+                <div class="listen-toolbar">
+                    <button type="button" class="listen-toolbar-btn primary" onclick="playListenTts()">재생</button>
+                    <button type="button" class="listen-toolbar-btn" onclick="stopListenTts()">중지</button>
+                    <div class="listen-rate-wrap">
+                        <button type="button" class="listen-toolbar-btn" id="listenRateButton" onclick="toggleListenRateMenu(event)">속도: <span id="listenRateButtonValue">1.0</span></button>
+                        <div class="listen-rate-menu" id="listenRateMenu" onclick="event.stopPropagation()"></div>
+                    </div>
+                    <div class="listen-rate-wrap">
+                        <button type="button" class="listen-toolbar-btn" id="listenPronButton" onclick="toggleListenPronMenu(event)">발음: <span id="listenPronButtonValue">영어식</span></button>
+                        <div class="listen-rate-menu listen-pron-menu" id="listenPronMenu" onclick="event.stopPropagation()"></div>
+                    </div>
+                    <button type="button" class="listen-toolbar-btn" onclick="exportListenMp3()">MP3 내보내기</button>
+                </div>
+                <div class="listen-output-text placeholder cyrillic-text" id="listenMongolianOutput">몽골어 번역 내용이 여기에 표시됩니다</div>
+            </section>
+        </div>
+    </div>
+</div>
 <div id="studyPage" class="page">
     <div class="study-page-wrap">
         <div class="study-title">신나는 학습 모드</div>
@@ -2546,22 +2640,11 @@ body.dark-mode .voice-low-confidence { color: #9aa8b8; }
 </div>
 
 <nav class="bottom-nav" id="bottomNav">
-    <button class="bottom-nav-btn active" data-mode="main" onclick="switchAppMode('main')">
-        <span class="bottom-nav-icon">📷</span>
-        <span class="bottom-nav-label">카메라</span>
-    </button>
-    <button class="bottom-nav-btn" data-mode="text" onclick="switchAppMode('text')">
-        <span class="bottom-nav-icon">✏️</span>
-        <span class="bottom-nav-label">일반</span>
-    </button>
-    <button class="bottom-nav-btn" data-mode="voice" onclick="switchAppMode('voice')">
-        <span class="bottom-nav-icon">🎤</span>
-        <span class="bottom-nav-label">음성</span>
-    </button>
-    <button class="bottom-nav-btn" data-mode="study" onclick="switchAppMode('study')">
-        <span class="bottom-nav-icon">📚</span>
-        <span class="bottom-nav-label">학습</span>
-    </button>
+    <button class="bottom-nav-btn" data-mode="voice" onclick="switchAppMode('voice')"><span class="bottom-nav-icon">🎤</span><span class="bottom-nav-label">음성</span></button>
+    <button class="bottom-nav-btn" data-mode="listen" onclick="switchAppMode('listen')"><span class="bottom-nav-icon">▶</span><span class="bottom-nav-label">듣기</span></button>
+    <button class="bottom-nav-btn" data-mode="text" onclick="switchAppMode('text')"><span class="bottom-nav-icon">✏️</span><span class="bottom-nav-label">일반</span></button>
+    <button class="bottom-nav-btn active" data-mode="main" onclick="switchAppMode('main')"><span class="bottom-nav-icon">📷</span><span class="bottom-nav-label">카메라</span></button>
+    <button class="bottom-nav-btn" data-mode="study" onclick="switchAppMode('study')"><span class="bottom-nav-icon">📚</span><span class="bottom-nav-label">학습</span></button>
 </nav>
 
 
@@ -2911,6 +2994,10 @@ const OCR_SECONDARY_TIMEOUT_MS = 10000;
 
 let currentSpeakingId = null;
 let currentUtterance = null;
+let listenLastKoreanText = "";
+let listenLastMongolianText = "";
+let listenLastRomanText = "";
+let listenNoticeTimer = null;
 let cachedVoices = [];
 
 
@@ -2974,6 +3061,13 @@ const studyQuizFeedback = document.getElementById("studyQuizFeedback");
 const studyQuizScoreText = document.getElementById("studyQuizScoreText");
 const studyQuizNextBtn = document.getElementById("studyQuizNextBtn");
 const studyQuizResultScore = document.getElementById("studyQuizResultScore");
+const listenKoreanInput = document.getElementById("listenKoreanInput");
+const listenMongolianOutput = document.getElementById("listenMongolianOutput");
+const listenProgress = document.getElementById("listenProgress");
+const listenRateButtonValue = document.getElementById("listenRateButtonValue");
+const listenRateMenu = document.getElementById("listenRateMenu");
+const listenPronButtonValue = document.getElementById("listenPronButtonValue");
+const listenPronMenu = document.getElementById("listenPronMenu");
 
 if (cameraZoomSlider) {
     cameraZoomSlider.addEventListener("input", (event) => {
@@ -3364,10 +3458,45 @@ function applyRuleList(text, rules) {
     return output;
 }
 
+function reduceMongolianShortVowelsForTtsToken(token) {
+    const value = String(token || "");
+    if (value.length < 5) return value;
+    if (/(aa|ee|ii|oo|uu|ö|ü|ai|ei|oi|ui|ya|yo|yu|ye)/.test(value)) return value;
+
+    const vowels = "aeiouy";
+    let seenFirstVowel = false;
+    let output = "";
+
+    for (let i = 0; i < value.length; i++) {
+        const ch = value[i];
+        const isVowel = vowels.includes(ch);
+        if (!isVowel) {
+            output += ch;
+            continue;
+        }
+        if (!seenFirstVowel) {
+            output += ch;
+            seenFirstVowel = true;
+            continue;
+        }
+        const prev = value[i - 1] || "";
+        const next = value[i + 1] || "";
+        const betweenHardCluster = prev && next && !vowels.includes(prev) && !vowels.includes(next);
+        if (betweenHardCluster) output += "uh";
+    }
+    return output || value;
+}
+
+function reduceMongolianShortVowelsForTts(text) {
+    return String(text || "")
+        .split(/(\s+)/)
+        .map(part => /\s+/.test(part) ? part : reduceMongolianShortVowelsForTtsToken(part))
+        .join("");
+}
+
 function romanToTtsEnglish(text) {
     let t = String(text || "").trim().toLowerCase();
 
-    /* 0단계: 기초 정리 */
     t = t
         .replace(/[()]/g, " ")
         .replace(/[\/]/g, " ")
@@ -3376,49 +3505,57 @@ function romanToTtsEnglish(text) {
         .replace(/\s+/g, " ")
         .trim();
 
-    /* 1단계: 문장 예외 */
     const phraseRules = [
+        [/\bsain baina uu\b/g, "sane bain ooh"],
+        [/\bbayarlalaa\b/g, "buy er laa"],
+        [/\buuchlaarai\b/g, "ooch laa rye"],
         [/\bta khen be\b/g, "tah hen beh"],
         [/\bchi khen be\b/g, "chee hen beh"],
-        [/\bsain baina uu\b/g, "sine bye nah oo"],
-        [/\bbayarlalaa\b/g, "bayar lalaa"],
-        [/\buuchlaarai\b/g, "ooch laa rai"],
-        [/\bta khen gedeg ve\b/g, "tah hen geh deg veh"],
-        [/\bta khen gej baina\b/g, "tah hen gej bye nah"]
+        [/\bta khen gedeg ve\b/g, "tah hen gehd geh veh"],
+        [/\bta khen gej baina\b/g, "tah hen gej bain"],
+        [/\bbi chamd khairtai\b/g, "bee chamd hire tai"],
+        [/\bbi chamd hairtai\b/g, "bee chamd hire tai"]
     ];
     t = applyRuleList(t, phraseRules);
 
-    /* 2단계: 단어 예외 */
+    t = reduceMongolianShortVowelsForTts(t);
+
     const wordRules = [
+        [/\bbaina\b/g, "bain"],
+        [/\bsain\b/g, "sane"],
+        [/\bbayarlalaa\b/g, "buy er laa"],
+        [/\buuchlaarai\b/g, "ooch laa rye"],
+        [/\bugui\b/g, "ooh gooey"],
+        [/\bugei\b/g, "oo gay"],
+        [/\buu\b/g, "ooh"],
         [/\bta\b/g, "tah"],
         [/\bchi\b/g, "chee"],
         [/\bkhen\b/g, "hen"],
         [/\bbe\b/g, "beh"],
         [/\bve\b/g, "veh"],
         [/\bwe\b/g, "veh"],
-        [/\buu\b/g, "oo"],
-        [/\bbaina\b/g, "bye nah"],
-        [/\bsain\b/g, "sine"],
-        [/\bgedeg\b/g, "geh deg"],
+        [/\bgedeg\b/g, "gehd geh"],
         [/\bgej\b/g, "gej"],
         [/\bnamaig\b/g, "nah maig"],
         [/\bmini\b/g, "mee nee"],
         [/\bchini\b/g, "chee nee"],
-        [/\btanii\b/g, "tah nii"],
-        [/\bbid\b/g, "beed"],
+        [/\btanii\b/g, "tah nee"],
+        [/\bbid\b/g, "bid"],
         [/\bymar\b/g, "ee mar"],
         [/\byaj\b/g, "yaaj"],
         [/\byuu\b/g, "yoo"],
-        [/\bireerei\b/g, "ee reh reh"],
-        [/\byavna\b/g, "yav na"],
+        [/\bireerei\b/g, "ee reh ray"],
+        [/\byavna\b/g, "yav n"],
         [/\bsum\b/g, "soom"],
         [/\bger\b/g, "ger"],
         [/\bborhan\b/g, "bor han"],
-        [/\byesus\b/g, "yeh soos"]
+        [/\byesus\b/g, "yeh soos"],
+        [/\bkhairtai\b/g, "hire tai"],
+        [/\bhairtai\b/g, "hire tai"],
+        [/\btaivandaa\b/g, "tai van daa"]
     ];
     t = applyRuleList(t, wordRules);
 
-    /* 3단계: 글자 묶음 규칙 */
     const clusterRules = [
         [/kh/g, "h"],
         [/sh/g, "sh"],
@@ -3430,29 +3567,26 @@ function romanToTtsEnglish(text) {
         [/yo/g, "yoh"],
         [/yu/g, "yoo"],
         [/ye/g, "yeh"],
-        [/ai/g, "eye"],
-        [/ei/g, "ey"],
+        [/air\b/g, "ire"],
+        [/ai/g, "ay"],
+        [/ei/g, "ay"],
         [/oi/g, "oy"],
-        [/ui/g, "oo ee"],
+        [/ui/g, "ooey"],
         [/au/g, "ow"]
     ];
     t = applyRuleList(t, clusterRules);
 
-    /* 4단계: 단순 문자/모음 정리 */
     const finalRules = [
-        [/ö/g, "uh"],
-        [/ü/g, "oo"],
-        [/aa/g, "ah"],
-        [/ee/g, "eh"],
+        [/ö/g, "ur"],
+        [/ü/g, "ew"],
+        [/aa/g, "aah"],
+        [/ee/g, "ay"],
         [/ii/g, "ee"],
-        [/oo/g, "oh"]
+        [/uu/g, "ooh"],        [/\bn\b/g, "en"]
     ];
     t = applyRuleList(t, finalRules);
 
-    /* 5단계: 최종 정리 */
-    t = t.replace(/\s+/g, " ").trim();
-
-    return t;
+    return t.replace(/\s+/g, " ").trim();
 }
 
 function stopTts() {
@@ -3640,18 +3774,12 @@ function renderHistory() {
         copyWrap.appendChild(copyBtn);
         copyWrap.appendChild(copyPanel);
 
-        const listenBtn = document.createElement("button");
-        listenBtn.className = "listen-btn";
-        listenBtn.innerText = "듣기";
-        listenBtn.onclick = () => speakHistoryRoman(item.id);
-
         const screenBtn = document.createElement("button");
         screenBtn.className = "screen-btn";
         screenBtn.innerText = "스크린";
         screenBtn.onclick = () => openScreen(item.mn);
 
         actionStack.appendChild(copyWrap);
-        actionStack.appendChild(listenBtn);
 
         btnBox.appendChild(actionStack);
         btnBox.appendChild(screenBtn);
@@ -3663,6 +3791,136 @@ function renderHistory() {
 }
 
 
+/* =========================
+   [4-1] 듣기 모드 전용 번역 / 재생
+   ========================= */
+function setListenProgress(text) { if (listenProgress) listenProgress.textContent = text || ""; }
+function showListenTemporaryNotice(message, ms = 1400) {
+    clearTimeout(listenNoticeTimer);
+    setListenProgress(message);
+    showToast(message);
+    listenNoticeTimer = setTimeout(() => setListenProgress(""), ms);
+}
+function setListenOutput(text, isPlaceholder = false) { if (!listenMongolianOutput) return; listenMongolianOutput.textContent = text; listenMongolianOutput.classList.toggle("placeholder", !!isPlaceholder); }
+function formatListenRate(value) { return Number(value || 1).toFixed(1); }
+function toggleListenRateMenu(event) { if (event) event.stopPropagation(); if (listenRateMenu) listenRateMenu.classList.toggle("open"); }
+function closeListenRateMenu() { if (listenRateMenu) listenRateMenu.classList.remove("open"); }
+function setListenRate(value) {
+    const numeric = Math.round((Number(value) || 1.0) * 10) / 10;
+    appSettings.tts.rate = numeric;
+    if (listenRateButtonValue) listenRateButtonValue.textContent = formatListenRate(numeric);
+    if (listenRateMenu) {
+        listenRateMenu.querySelectorAll(".listen-rate-option").forEach(btn => {
+            btn.classList.toggle("active", Math.abs(Number(btn.dataset.rate) - numeric) < 0.001);
+        });
+    }
+    saveSettings();
+}
+function onListenRateChange(value) { setListenRate(value); }
+function buildListenRateMenu() {
+    if (!listenRateMenu) return;
+    listenRateMenu.innerHTML = "";
+    for (let i = 1; i <= 20; i++) {
+        const rate = i / 10;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "listen-rate-option";
+        btn.dataset.rate = String(rate);
+        btn.textContent = `x${rate.toFixed(1)}`;
+        btn.onclick = () => { setListenRate(rate); closeListenRateMenu(); };
+        listenRateMenu.appendChild(btn);
+    }
+    setListenRate(appSettings.tts.rate || 1.0);
+}
+function getListenPronLabel(mode) {
+    if (mode === "korean") return "한국식";
+    if (mode === "mongolian") return "몽골식";
+    return "영어식";
+}
+function toggleListenPronMenu(event) { if (event) event.stopPropagation(); if (listenPronMenu) listenPronMenu.classList.toggle("open"); }
+function closeListenPronMenu() { if (listenPronMenu) listenPronMenu.classList.remove("open"); }
+function setListenPronunciationMode(mode) {
+    const safeMode = ["korean", "english", "mongolian"].includes(mode) ? mode : "english";
+    appSettings.tts.pronunciationMode = safeMode;
+    if (listenPronButtonValue) listenPronButtonValue.textContent = getListenPronLabel(safeMode);
+    if (listenPronMenu) {
+        listenPronMenu.querySelectorAll(".listen-rate-option").forEach(btn => {
+            btn.classList.toggle("active", btn.dataset.mode === safeMode);
+        });
+    }
+    saveSettings();
+}
+function buildListenPronMenu() {
+    if (!listenPronMenu) return;
+    const items = [["korean", "한국식"], ["english", "영어식"], ["mongolian", "몽골식"]];
+    listenPronMenu.innerHTML = "";
+    items.forEach(([mode, label]) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "listen-rate-option";
+        btn.dataset.mode = mode;
+        btn.textContent = label;
+        btn.onclick = () => { setListenPronunciationMode(mode); closeListenPronMenu(); };
+        listenPronMenu.appendChild(btn);
+    });
+    setListenPronunciationMode(appSettings.tts.pronunciationMode || "english");
+}
+function getBestVoiceByLang(prefixes) {
+    const voices = cachedVoices.length ? cachedVoices : refreshVoices();
+    const list = Array.isArray(prefixes) ? prefixes : [prefixes];
+    return voices.find(v => list.some(prefix => String(v.lang || "").toLowerCase().startsWith(prefix.toLowerCase()))) || null;
+}
+function getListenTtsPayload() {
+    const mode = appSettings.tts.pronunciationMode || "english";
+    const roman = listenLastRomanText || toRoman(listenLastMongolianText);
+    if (mode === "korean") {
+        return { text: romanToKorean(roman), lang: "ko-KR", voice: getBestVoiceByLang("ko") };
+    }
+    if (mode === "mongolian") {
+        const voice = getBestVoiceByLang("mn");
+        if (!voice) return { unavailable: true, text: "", lang: "mn-MN", voice: null };
+        return { text: listenLastMongolianText, lang: "mn-MN", voice };
+    }
+    return { text: romanToTtsEnglish(roman), lang: "en-US", voice: getSelectedTtsVoice() };
+}
+async function runListenTranslation() {
+    const input = (listenKoreanInput?.value || "").trim();
+    if (!input) { showToast("한국어를 입력해 주세요"); return; }
+    listenLastKoreanText = input; listenLastMongolianText = ""; listenLastRomanText = "";
+    setListenProgress("번역 중입니다"); setListenOutput("번역 중입니다...", true);
+    try {
+        const resMn = await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=mn&dt=t&q=" + encodeURIComponent(input));
+        const dataMn = await resMn.json();
+        const mn = dataMn?.[0]?.map(row => row[0]).join("")?.trim() || "";
+        if (!mn) { setListenProgress("번역 결과를 받지 못했습니다"); setListenOutput("번역 결과가 비어 있습니다", true); return; }
+        listenLastMongolianText = mn; listenLastRomanText = toRoman(mn);
+        setListenOutput(mn, false); setListenProgress("완료되었습니다. 재생 버튼으로 들어보세요."); triggerCompleteVibration();
+    } catch (error) { console.error(error); setListenProgress("번역 중 오류가 발생했습니다"); setListenOutput("번역 중 오류가 발생했습니다", true); }
+}
+function playListenTts() {
+    if (!listenLastMongolianText) { showToast("먼저 번역해 주세요"); return; }
+    if (!("speechSynthesis" in window)) { showToast("이 기기는 TTS 미지원"); return; }
+    refreshVoices(); stopTts();
+    const payload = getListenTtsPayload();
+    if (payload.unavailable) { showListenTemporaryNotice("몽골어 TTS 사용 불가"); return; }
+    if (!payload.text) { showToast("읽을 내용 없음"); return; }
+    const utterance = new SpeechSynthesisUtterance(payload.text);
+    if (payload.voice) { utterance.voice = payload.voice; utterance.lang = payload.voice.lang || payload.lang; } else { utterance.lang = payload.lang; }
+    utterance.rate = Number(appSettings.tts.rate || 1.0);
+    utterance.pitch = appSettings.tts.pitch; utterance.volume = 1.0;
+    utterance.onstart = () => setListenProgress("재생 중입니다");
+    utterance.onend = () => setListenProgress("재생이 끝났습니다");
+    utterance.onerror = (event) => { console.error("듣기 모드 TTS 오류", event); setListenProgress("재생 중 오류가 발생했습니다"); showToast("재생 실패"); };
+    currentUtterance = utterance; window.speechSynthesis.speak(utterance);
+}
+function stopListenTts() { stopTts(); setListenProgress("재생을 중지했습니다"); }
+function exportListenMp3() {
+    if (!listenLastMongolianText) { showToast("먼저 번역해 주세요"); return; }
+    const url = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=mn&q=" + encodeURIComponent(listenLastMongolianText);
+    const link = document.createElement("a"); link.href = url; link.download = "mongolian-tts.mp3"; link.target = "_blank"; link.rel = "noopener";
+    document.body.appendChild(link); link.click(); link.remove();
+    setListenProgress("MP3 내보내기를 요청했습니다. 브라우저가 새 탭으로 열 수 있습니다."); showToast("MP3 내보내기");
+}
 /* =========================
    [5] 스크린 모드
    ========================= */
@@ -4696,6 +4954,7 @@ function switchAppMode(mode) {
     document.getElementById("mainPage").style.display = mode === "text" ? "block" : "none";
     document.getElementById("cameraPage").style.display = mode === "main" ? "block" : "none";
     document.getElementById("voicePage").style.display = mode === "voice" ? "block" : "none";
+    document.getElementById("listenPage").style.display = mode === "listen" ? "block" : "none";
     document.getElementById("studyPage").style.display = mode === "study" ? "block" : "none";
 
     document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
@@ -4706,6 +4965,10 @@ function switchAppMode(mode) {
         stopCameraStream();
         hideFullscreenCamera();
         if (cameraOcrRunning) abortCameraRecognition(true);
+    }
+
+    if (mode !== "listen") {
+        stopListenTts();
     }
 
     if (mode !== "voice") {
@@ -5842,10 +6105,10 @@ function applyIOSVoiceDisabledUI() {
     if (IS_IOS && voiceMicBtn) voiceMicBtn.classList.add("ios-disabled");
 }
 
-const SETTINGS_STORAGE_KEY = "mongolian_translator_settings_v2041";
+const SETTINGS_STORAGE_KEY = "mongolian_translator_settings_monglangTS";
 const defaultSettings = {
     theme: "system",
-    tts: { voiceName: "auto", rate: 0.72, pitch: 1.0 },
+    tts: { voiceName: "auto", rate: 1.0, pitch: 1.0, pronunciationMode: "english" },
     quizDifficulty: "mid",
     visibility: { showEnglish: true, showRoman: true, showKorPron: true, showGlossary: true },
     vibrationEnabled: false,
@@ -5974,7 +6237,7 @@ function populateTtsVoiceSelect() {
 function playTtsPreview() {
     if (!("speechSynthesis" in window)) return showToast("이 기기는 TTS 미지원");
     stopTts();
-    const utterance = new SpeechSynthesisUtterance("sain baina uu. bayarlalaa.");
+    const utterance = new SpeechSynthesisUtterance(romanToTtsEnglish("sain baina uu. bayarlalaa."));
     const voice = getSelectedTtsVoice();
     if (voice) { utterance.voice = voice; utterance.lang = voice.lang || "en-US"; } else utterance.lang = "en-US";
     utterance.rate = appSettings.tts.rate; utterance.pitch = appSettings.tts.pitch; utterance.volume = 1;
@@ -6030,6 +6293,9 @@ function syncSettingsUI() {
     syncVibrationUi();
     document.getElementById("fontScaleRange").value = appSettings.typography.fontScale;
     document.getElementById("fontScaleValue").textContent = Number(appSettings.typography.fontScale).toFixed(2);
+    if (listenRateButtonValue) listenRateButtonValue.textContent = formatListenRate(appSettings.tts.rate);
+    buildListenRateMenu();
+    buildListenPronMenu();
     [["quiz", "low"],["quiz","mid"],["quiz","high"],["ocr","fast"],["ocr","normal"],["ocr","precise"],["cyrillic","light"],["cyrillic","mid"],["cyrillic","bold"],["latin","light"],["latin","mid"],["latin","bold"],["font","rounded"],["font","clean"],["font","neo"],["font","classic"]].forEach(([group,val])=>{ const el=document.getElementById(`${group}-${val}`); if(!el) return; const active = (group==='quiz'&&appSettings.quizDifficulty===val)||(group==='ocr'&&appSettings.ocrLevel===val)||(group==='cyrillic'&&appSettings.typography.cyrillicWeight===val)||(group==='latin'&&appSettings.typography.latinWeight===val)||(group==='font'&&appSettings.typography.latinStyle===val); el.classList.toggle('active', active); });
     applyThemeMode(); setVisibilityClasses(); populateTtsVoiceSelect(); applyTypographySettings();
 }
@@ -6064,6 +6330,7 @@ document.getElementById("screenMode").addEventListener("click", (e) => {
 });
 
 document.addEventListener("click", (e) => {
+    if (!e.target.closest(".listen-rate-wrap")) { closeListenRateMenu(); closeListenPronMenu(); }
     if (!e.target.closest(".buttons")) {
         closeCopyPanels();
         renderHistory();
